@@ -5,6 +5,7 @@ import {
   CheckSquare,
   GitBranch,
   LayoutDashboard,
+  LogOut,
   Menu,
   Settings,
   Sparkles,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../../lib/auth'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -58,6 +60,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   return (
     <div className="flex h-full">
@@ -101,9 +104,26 @@ export default function AppLayout() {
             <button aria-label="Notifications" className="rounded-md p-2 text-slate-400 hover:bg-navy-700 hover:text-white">
               <Bell className="h-5 w-5" />
             </button>
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-brand to-electric text-xs font-semibold">
-              N
+            <div className="hidden text-right leading-tight sm:block">
+              <p className="text-sm font-medium">{user?.full_name}</p>
+              <p className="text-xs text-slate-500">
+                {user?.organization.name} · {user?.role}
+              </p>
             </div>
+            <div
+              aria-hidden
+              className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-brand to-electric text-xs font-semibold"
+            >
+              {user?.full_name.charAt(0).toUpperCase()}
+            </div>
+            <button
+              aria-label="Sign out"
+              title="Sign out"
+              onClick={() => logout()}
+              className="rounded-md p-2 text-slate-400 hover:bg-navy-700 hover:text-white"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
