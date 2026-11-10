@@ -76,3 +76,73 @@ export interface ActivityEvent {
   actor_name: string | null
   created_at: string
 }
+
+// ---------- analytics ----------
+export interface Kpis {
+  total_leads: number
+  won_leads: number
+  total_revenue: number
+  conversion_rate: number
+  active_workflows: number
+  pending_approvals: number
+  documents_indexed: number
+}
+export interface MonthRevenue {
+  month: string
+  revenue: number
+  deals: number
+}
+export interface MonthLeads {
+  month: string
+  created: number
+  won: number
+  conversion_rate: number
+}
+export interface LabelCount {
+  label: string
+  count: number
+}
+export interface LabelRevenue {
+  label: string
+  revenue: number
+  deals: number
+}
+export interface SalesPerson {
+  id: string | null
+  name: string
+  revenue: number
+  deals: number
+  leads_assigned: number
+  leads_won: number
+  conversion_rate: number
+}
+export interface ActivityItem {
+  id: string
+  action: string
+  entity_type: string
+  summary: string
+  actor_name: string | null
+  created_at: string
+}
+export interface DashboardOverview {
+  kpis: Kpis
+  monthly_revenue: MonthRevenue[]
+  lead_acquisition: MonthLeads[]
+  leads_by_city: LabelCount[]
+  sales_performance: SalesPerson[]
+  recent_activity: ActivityItem[]
+}
+export interface RevenueAnalytics {
+  months: number
+  total: number
+  monthly: MonthRevenue[]
+  by_city: LabelRevenue[]
+  by_salesperson: SalesPerson[]
+}
+export interface LeadAnalytics {
+  months: number
+  acquisition: MonthLeads[]
+  by_status: LabelCount[]
+  by_source: LabelCount[]
+  by_city: LabelCount[]
+}

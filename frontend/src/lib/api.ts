@@ -1,5 +1,8 @@
 import axios from 'axios'
 import type {
+  DashboardOverview,
+  LeadAnalytics,
+  RevenueAnalytics,
   ActivityEvent,
   Lead,
   LeadInput,
@@ -126,4 +129,11 @@ export const leadsApi = {
   bulkDelete: async (ids: string[]) => (await api.post<{ deleted: number }>('/leads/bulk-delete', { ids })).data,
   bulkUpdate: async (ids: string[], changes: { status?: LeadStatus; priority?: LeadPriority }) =>
     (await api.post<{ updated: number }>('/leads/bulk-update', { ids, ...changes })).data,
+}
+
+// ---------- dashboard & analytics ----------
+export const analyticsApi = {
+  dashboard: async () => (await api.get<DashboardOverview>('/dashboard/overview')).data,
+  revenue: async (months: number) => (await api.get<RevenueAnalytics>('/analytics/revenue', { params: { months } })).data,
+  leads: async (months: number) => (await api.get<LeadAnalytics>('/analytics/leads', { params: { months } })).data,
 }

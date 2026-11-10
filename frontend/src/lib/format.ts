@@ -22,3 +22,34 @@ export function fromDateInput(value: string): string | null {
 }
 
 export const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+const inrCompact = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
+export const formatCurrency = (n: number) => inr.format(n)
+export const formatCurrencyCompact = (n: number) => inrCompact.format(n)
+export const formatNumber = (n: number) => new Intl.NumberFormat('en-IN').format(n)
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** "2026-03" -> "Mar" (or "Jan ’27" for January, so year changes are visible) */
+export function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  const name = MONTHS[(m ?? 1) - 1] ?? key
+  return m === 1 ? `${name} ’${String(y).slice(2)}` : name
+}
+
+export function timeAgo(iso: string): string {
+  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return days < 30 ? `${days}d ago` : formatDate(iso)
+}
