@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, health, leads, team
+from app.api.v1 import auth, dashboard, health, leads, sales, team
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -20,5 +20,13 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-for r in (health.router, auth.router, team.router, leads.router):
+for r in (
+    health.router,
+    auth.router,
+    team.router,
+    leads.router,
+    sales.router,
+    dashboard.dashboard_router,
+    dashboard.analytics_router,
+):
     app.include_router(r, prefix="/api/v1")
