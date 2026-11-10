@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Nexora AI"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
     environment: str = "development"
 
     # Postgres connection string (Supabase in production, local SQLite fallback for dev/tests).

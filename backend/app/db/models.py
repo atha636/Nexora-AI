@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -7,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Numeric,
     String,
     UniqueConstraint,
     Uuid,
@@ -121,4 +123,29 @@ class ActivityLog(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     action: Mapped[str] = mapped_column(String(60))
     details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Sale(Base):
+    """A closed deal. Revenue everywhere in the app is the sum of these rows."""
+
+    __tablename__ = "sales"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_sale_amount_positive"),
+        Index("ix_sales_org_sold_at", "organization_id", "sold_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE")
+    )
+    # Both links are nullable: deleting a lead or a user must not erase revenue history.
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("leads.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    salesperson_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    sold_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
