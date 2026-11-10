@@ -1,11 +1,4 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_health_ok():
+def test_health_ok(client):
     res = client.get("/api/v1/health")
     assert res.status_code == 200
     body = res.json()
@@ -14,7 +7,7 @@ def test_health_ok():
     assert body["service"] == "Nexora AI"
 
 
-def test_cors_allows_frontend_origin():
+def test_cors_allows_frontend_origin(client):
     res = client.options(
         "/api/v1/health",
         headers={
