@@ -33,7 +33,7 @@ const kpiCards: { label: string; icon: LucideIcon; value: (k: Kpis) => string; h
   },
   { label: 'Active workflows', icon: GitBranch, value: (k) => formatNumber(k.active_workflows), hint: () => 'Coming in Phase 9' },
   { label: 'Pending approvals', icon: CheckSquare, value: (k) => formatNumber(k.pending_approvals), hint: () => 'Coming in Phase 8' },
-  { label: 'Documents indexed', icon: FileText, value: (k) => formatNumber(k.documents_indexed), hint: () => 'Coming in Phase 4' },
+  { label: 'Documents indexed', icon: FileText, value: (k) => formatNumber(k.documents_indexed), hint: () => 'Ready for search' },
 ]
 
 function ApiStatus() {

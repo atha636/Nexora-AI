@@ -146,3 +146,32 @@ export interface LeadAnalytics {
   by_source: LabelCount[]
   by_city: LabelCount[]
 }
+
+// ---------- knowledge base ----------
+export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'failed'
+
+export interface DocumentItem {
+  id: string
+  filename: string
+  file_type: 'pdf' | 'docx' | 'txt'
+  file_size: number
+  status: DocumentStatus
+  error_message: string | null
+  page_count: number | null
+  chunk_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SearchHit {
+  chunk_id: string
+  document_id: string
+  filename: string
+  page_number: number | null
+  chunk_index: number
+  content: string
+  score: number
+}
+
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt']

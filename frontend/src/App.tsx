@@ -4,6 +4,7 @@ import AppLayout from './components/layout/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import ComingSoon from './pages/ComingSoon'
 import LeadDetail from './pages/LeadDetail'
+import Knowledge from './pages/Knowledge'
 import Leads from './pages/Leads'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -14,7 +15,6 @@ const Analytics = lazy(() => import('./pages/Analytics'))
 
 const placeholders = [
   { path: 'assistant', title: 'AI Assistant' },
-  { path: 'knowledge', title: 'Knowledge' },
   { path: 'workflows', title: 'Workflows' },
   { path: 'approvals', title: 'Approvals' },
   { path: 'settings', title: 'Settings' },
@@ -30,6 +30,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="knowledge" element={<Knowledge />} />
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />
           {placeholders.map((p) => (

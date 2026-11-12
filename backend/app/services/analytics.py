@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import ActivityLog, Lead, OrganizationMember, Profile, Sale
+from app.db.models import ActivityLog, Document, Lead, OrganizationMember, Profile, Sale
 from app.schemas.analytics import (
     ActivityItem,
     Kpis,
@@ -67,6 +67,14 @@ def kpis(db: Session, org_id: uuid.UUID) -> Kpis:
         or 0
     )
     revenue = db.scalar(select(func.coalesce(func.sum(Sale.amount), 0)).where(Sale.organization_id == org_id)) or 0
+    documents_ready = (
+        db.scalar(
+            select(func.count())
+            .select_from(Document)
+            .where(Document.organization_id == org_id, Document.status == "ready")
+        )
+        or 0
+    )
     return Kpis(
         total_leads=total_leads,
         won_leads=won,
@@ -74,7 +82,7 @@ def kpis(db: Session, org_id: uuid.UUID) -> Kpis:
         conversion_rate=_pct(won, total_leads),
         active_workflows=0,
         pending_approvals=0,
-        documents_indexed=0,
+        documents_indexed=documents_ready,
     )
 
 
@@ -214,6 +222,11 @@ _SUMMARIES = {
     "lead.bulk_deleted": "Leads deleted in bulk",
     "member.added": "Teammate added",
     "sale.recorded": "Sale recorded",
+    "document.uploaded": "Document uploaded",
+    "document.indexed": "Document indexed",
+    "document.failed": "Document failed to index",
+    "document.reindexed": "Document re-index requested",
+    "document.deleted": "Document deleted",
     "auth.logout": "Signed out",
 }
 

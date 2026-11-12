@@ -1,5 +1,7 @@
 import axios from 'axios'
 import type {
+  DocumentItem,
+  SearchHit,
   DashboardOverview,
   LeadAnalytics,
   RevenueAnalytics,
@@ -136,4 +138,18 @@ export const analyticsApi = {
   dashboard: async () => (await api.get<DashboardOverview>('/dashboard/overview')).data,
   revenue: async (months: number) => (await api.get<RevenueAnalytics>('/analytics/revenue', { params: { months } })).data,
   leads: async (months: number) => (await api.get<LeadAnalytics>('/analytics/leads', { params: { months } })).data,
+}
+
+// ---------- knowledge base ----------
+export const documentsApi = {
+  list: async () => (await api.get<DocumentItem[]>('/documents')).data,
+  upload: async (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return (await api.post<DocumentItem>('/documents/upload', form)).data
+  },
+  remove: async (id: string) => api.delete(`/documents/${id}`),
+  reindex: async (id: string) => (await api.post<DocumentItem>(`/documents/${id}/reindex`)).data,
+  search: async (query: string, topK = 5) =>
+    (await api.post<{ query: string; hits: SearchHit[] }>('/documents/search', { query, top_k: topK })).data,
 }
