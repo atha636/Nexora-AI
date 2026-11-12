@@ -23,3 +23,9 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+def get_session_factory():
+    """FastAPI dependency used by background jobs, which need their own database session
+    because the request's session is closed before they run. Tests override this."""
+    return SessionLocal
