@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Nexora AI"
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
     environment: str = "development"
 
     # Postgres connection string (Supabase in production, local SQLite fallback for dev/tests).
@@ -40,6 +40,23 @@ class Settings(BaseSettings):
     max_extracted_chars: int = 2_000_000
     max_chunks_per_document: int = 2000
     max_documents_per_org: int = 50  # keeps a free-tier database from filling up
+
+    # ---- Answers with citations (Phase 5) ----
+    # "groq" calls the Groq API (free tier, needs GROQ_API_KEY). Without a key the ask endpoint
+    # answers 503 "not configured" and everything else keeps working.
+    llm_provider: str = "groq"
+    groq_api_key: str | None = None
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    llm_timeout_seconds: float = 30.0
+    llm_max_output_tokens: int = 600
+
+    rag_top_k: int = 5
+    # Passages less similar than this to the question are never shown to the model. If nothing
+    # passes, we answer "not enough information" without calling the LLM at all.
+    # Calibrated for all-MiniLM-L6-v2; tune with real documents (see docs in README).
+    rag_min_score: float = 0.25
+    rag_max_context_chars: int = 9000
 
     @property
     def cors_origin_list(self) -> list[str]:

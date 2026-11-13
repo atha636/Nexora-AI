@@ -39,3 +39,32 @@ class SearchHitOut(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     hits: list[SearchHitOut]
+
+
+class AskRequest(BaseModel):
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+    top_k: int = Field(5, ge=1, le=10)
+    document_id: uuid.UUID | None = None
+
+
+class CitationOut(BaseModel):
+    number: int  # matches the [n] markers in the answer text
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    filename: str
+    page_number: int | None
+    chunk_index: int
+    snippet: str
+    score: float
+
+
+class AskResponse(BaseModel):
+    answer: str
+    found: bool  # False = the documents did not contain enough information
+    reason: str | None  # no_sources | insufficient | ungrounded
+    citations: list[CitationOut]
+    sources_considered: int
+    model: str | None
+    latency_ms: int
+    prompt_tokens: int | None
+    completion_tokens: int | None

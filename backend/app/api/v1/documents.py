@@ -8,9 +8,19 @@ from app.api.deps import AuthContext, get_auth_context, log_activity, require_ro
 from app.core.config import get_settings
 from app.db.models import Document, DocumentChunk
 from app.db.session import get_db, get_session_factory
-from app.schemas.document import DocumentOut, SearchHitOut, SearchRequest, SearchResponse
+from app.schemas.document import (
+    AskRequest,
+    AskResponse,
+    CitationOut,
+    DocumentOut,
+    SearchHitOut,
+    SearchRequest,
+    SearchResponse,
+)
 from app.services.documents import is_busy, process_document
 from app.services.embeddings import Embedder, get_embedder
+from app.services.llm import LLMClient, LLMError, LLMNotConfigured, get_llm
+from app.services.rag import answer_question
 from app.services.extraction import ExtractionError, FileTooLarge, safe_filename, validate_upload
 from app.services.search import search_chunks
 
@@ -102,6 +112,39 @@ def search_documents(
     return SearchResponse(
         query=body.query,
         hits=[SearchHitOut.model_validate(h, from_attributes=True) for h in hits],
+    )
+
+
+@router.post("/ask", response_model=AskResponse)
+def ask_documents(
+    body: AskRequest,
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+    embedder: Embedder = Depends(get_embedder),
+    llm: LLMClient = Depends(get_llm),
+) -> AskResponse:
+    """Answers a question using only this organization's indexed documents, with citations.
+    `found=false` means the documents don't contain enough information (the model never guesses)."""
+    if body.document_id is not None:
+        _get_document(db, ctx, body.document_id)
+    try:
+        result = answer_question(
+            db, ctx.organization_id, body.question, embedder, llm, top_k=body.top_k, document_id=body.document_id
+        )
+    except LLMNotConfigured as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from None
+    except LLMError as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from None
+    return AskResponse(
+        answer=result.answer,
+        found=result.found,
+        reason=result.reason,
+        citations=[CitationOut.model_validate(c, from_attributes=True) for c in result.citations],
+        sources_considered=result.sources_considered,
+        model=result.model,
+        latency_ms=result.latency_ms,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
     )
 
 
