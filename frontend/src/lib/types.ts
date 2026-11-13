@@ -173,5 +173,28 @@ export interface SearchHit {
   score: number
 }
 
+export interface Citation {
+  number: number
+  chunk_id: string
+  document_id: string
+  filename: string
+  page_number: number | null
+  chunk_index: number
+  snippet: string
+  score: number
+}
+
+export interface AskResponse {
+  answer: string
+  found: boolean
+  reason: 'no_sources' | 'insufficient' | 'ungrounded' | null
+  citations: Citation[]
+  sources_considered: number
+  model: string | null
+  latency_ms: number
+  prompt_tokens: number | null
+  completion_tokens: number | null
+}
+
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt']

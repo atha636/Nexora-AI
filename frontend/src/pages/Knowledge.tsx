@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useRef, useState, type DragEvent, type FormEvent } from 'react'
+import AskPanel from '../components/knowledge/AskPanel'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
 import { inputClass } from '../components/ui/Field'
@@ -276,10 +277,12 @@ export default function Knowledge() {
         )}
       </Card>
 
+      <AskPanel disabled={readyCount === 0} />
+
       <Card className="p-5">
         <h2 className="text-sm font-semibold text-slate-200">Test search</h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Finds the passages most similar in meaning to your question. Written answers with citations arrive in Phase 5.
+          Shows the raw passages most similar to your question, with no AI involved. Useful for checking what the answers are based on.
         </p>
         <form onSubmit={onSearch} className="mt-4 flex gap-2">
           <div className="relative flex-1">

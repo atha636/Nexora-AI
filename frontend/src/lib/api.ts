@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  AskResponse,
   DocumentItem,
   SearchHit,
   DashboardOverview,
@@ -152,4 +153,5 @@ export const documentsApi = {
   reindex: async (id: string) => (await api.post<DocumentItem>(`/documents/${id}/reindex`)).data,
   search: async (query: string, topK = 5) =>
     (await api.post<{ query: string; hits: SearchHit[] }>('/documents/search', { query, top_k: topK })).data,
+  ask: async (question: string) => (await api.post<AskResponse>('/documents/ask', { question })).data,
 }
