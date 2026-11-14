@@ -46,10 +46,16 @@ class Settings(BaseSettings):
     # answers 503 "not configured" and everything else keeps working.
     llm_provider: str = "groq"
     groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    # Groq retires models regularly (llama-3.3-70b-versatile was shut down on 2026-08-16).
+    # If answers start failing with "model not found", check console.groq.com/docs/deprecations
+    # and set GROQ_MODEL in .env, no code change needed.
+    groq_model: str = "openai/gpt-oss-120b"
+    # gpt-oss models "think" before answering, and thinking counts toward the token limit.
+    # "low" keeps it quick and leaves room for the answer. Only sent to gpt-oss models.
+    groq_reasoning_effort: str = "low"
     groq_base_url: str = "https://api.groq.com/openai/v1"
     llm_timeout_seconds: float = 30.0
-    llm_max_output_tokens: int = 600
+    llm_max_output_tokens: int = 1500
 
     rag_top_k: int = 5
     # Passages less similar than this to the question are never shown to the model. If nothing
@@ -57,6 +63,9 @@ class Settings(BaseSettings):
     # Calibrated for all-MiniLM-L6-v2; tune with real documents (see docs in README).
     rag_min_score: float = 0.25
     rag_max_context_chars: int = 9000
+    # Set RAG_DEBUG=true to log the start of answers that were rejected for lacking citations.
+    # Leave off in production: that text can include document content.
+    rag_debug: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:

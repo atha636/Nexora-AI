@@ -40,8 +40,17 @@ class LLMClient(Protocol):
 
 
 class GroqClient:
-    def __init__(self, api_key: str, model: str, base_url: str, timeout: float, transport: httpx.BaseTransport | None = None):
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        base_url: str,
+        timeout: float,
+        reasoning_effort: str | None = None,
+        transport: httpx.BaseTransport | None = None,
+    ):
         self._api_key = api_key
+        self._reasoning_effort = reasoning_effort
         self.model = model
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._timeout = timeout
@@ -54,6 +63,8 @@ class GroqClient:
             "temperature": 0,  # factual Q&A: we want the same answer every time
             "max_tokens": max_tokens,
         }
+        if self._reasoning_effort and self.model.startswith("openai/gpt-oss"):
+            payload["reasoning_effort"] = self._reasoning_effort
         started = time.perf_counter()
         try:
             with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
@@ -69,8 +80,11 @@ class GroqClient:
             # Log the status only. Never log the key, the prompt or the response body.
             log.error("LLM rejected our credentials (HTTP %s)", res.status_code)
             raise LLMError("The AI service rejected the server's credentials. Ask an administrator to check GROQ_API_KEY.")
+        if res.status_code == 404:
+            log.error("LLM model %r not found (HTTP 404): %s", self.model, _provider_error(res))
+            raise LLMError("The configured AI model was not found. It may have been retired: ask an administrator to check GROQ_MODEL.")
         if res.status_code >= 400:
-            log.error("LLM call failed (HTTP %s)", res.status_code)
+            log.error("LLM call failed (HTTP %s): %s", res.status_code, _provider_error(res))
             raise LLMError("The AI service returned an error. Please try again.")
 
         try:
@@ -79,12 +93,26 @@ class GroqClient:
             usage = body.get("usage") or {}
         except (ValueError, KeyError, IndexError, TypeError):
             raise LLMError("The AI service returned an unreadable response.") from None
+        if not text.strip():
+            # Typically a reasoning model that ran out of tokens while thinking.
+            log.error("LLM returned an empty answer (model %s)", self.model)
+            raise LLMError("The AI service returned an empty answer. Please try again.")
         return LLMResult(
             text=text.strip(),
             latency_ms=int((time.perf_counter() - started) * 1000),
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
         )
+
+
+def _provider_error(res: httpx.Response) -> str:
+    """The provider's own error message (e.g. "model ... does not exist"). It describes the
+    problem, not our prompt, so it is safe to log; capped in length just in case."""
+    try:
+        err = res.json().get("error", {})
+        return f'{err.get("code") or err.get("type") or "error"}: {err.get("message", "")}'[:300]
+    except Exception:  # noqa: BLE001 - logging helper must never raise
+        return "unreadable error body"
 
 
 class _Unconfigured:
@@ -98,5 +126,7 @@ def get_llm() -> LLMClient:
     """FastAPI dependency. Cheap to build per request; tests override it."""
     s = get_settings()
     if s.llm_provider == "groq" and s.groq_api_key:
-        return GroqClient(s.groq_api_key, s.groq_model, s.groq_base_url, s.llm_timeout_seconds)
+        return GroqClient(
+            s.groq_api_key, s.groq_model, s.groq_base_url, s.llm_timeout_seconds, reasoning_effort=s.groq_reasoning_effort
+        )
     return _Unconfigured()

@@ -109,6 +109,27 @@ def test_invented_citation_numbers_are_removed(client, llm):
     assert [c["number"] for c in body["citations"]] == [1]
 
 
+@pytest.mark.parametrize(
+    "reply",
+    ["Returns take thirty days [Source 1].", "Returns take thirty days [source: 1].", "Returns take thirty days 【1】.",
+     "Returns take thirty days (Source 1).", "Returns take thirty days [1; 5]."],
+)
+def test_common_citation_styles_are_accepted_and_normalized(client, llm, reply):
+    llm.reply = reply
+    h = signup(client)
+    upload_ok(client, h, "policies.pdf", policy_pdf())
+    body = ask(client, h).json()
+    assert body["found"] is True and "[1]" in body["answer"] and "ource" not in body["answer"]
+    assert [c["number"] for c in body["citations"]] == [1]
+
+
+def test_years_in_parentheses_are_not_mistaken_for_citations(client, llm):
+    llm.reply = "The policy (2024) allows returns [1]."
+    h = signup(client)
+    upload_ok(client, h, "policies.pdf", policy_pdf())
+    assert "(2024)" in ask(client, h).json()["answer"]
+
+
 def test_answer_with_only_invented_citations_is_rejected(client, llm):
     llm.reply = "Refunds take 30 days [42]."
     h = signup(client)
@@ -184,8 +205,8 @@ def test_missing_api_key_is_a_clear_503(client, monkeypatch):
 
 
 # ---------- the Groq client itself, with a mocked network ----------
-def groq(handler):
-    return GroqClient("gsk_test_key", "m", "https://api.example.test/v1", 5, transport=httpx.MockTransport(handler))
+def groq(handler, model="m", **kw):
+    return GroqClient("gsk_test_key", model, "https://api.example.test/v1", 5, transport=httpx.MockTransport(handler), **kw)
 
 
 def test_groq_client_success_and_request_shape():
@@ -213,7 +234,9 @@ def test_groq_client_success_and_request_shape():
     [
         (httpx.Response(429), "busy"),
         (httpx.Response(401, text="bad key gsk_test_key"), "credentials"),
+        (httpx.Response(404, json={"error": {"message": "model does not exist", "code": "model_not_found"}}), "GROQ_MODEL"),
         (httpx.Response(500, text="boom"), "error"),
+        (httpx.Response(200, json={"choices": [{"message": {"content": "   "}}]}), "empty answer"),
         (httpx.Response(200, text="not json"), "unreadable"),
         (httpx.Response(200, json={"choices": []}), "unreadable"),
     ],
@@ -223,6 +246,18 @@ def test_groq_client_errors_are_safe(response, expect):
         groq(lambda req: response).complete("s", "u", max_tokens=5)
     assert expect in str(e.value)
     assert "gsk_test_key" not in str(e.value)  # secrets never reach the user
+
+
+def test_reasoning_effort_is_only_sent_to_gpt_oss_models():
+    bodies = []
+
+    def handler(req):
+        bodies.append(json.loads(req.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    groq(handler, "openai/gpt-oss-120b", reasoning_effort="low").complete("s", "u", max_tokens=5)
+    groq(handler, "some/other-model", reasoning_effort="low").complete("s", "u", max_tokens=5)
+    assert bodies[0]["reasoning_effort"] == "low" and "reasoning_effort" not in bodies[1]
 
 
 def test_groq_client_timeout_and_network_errors():
