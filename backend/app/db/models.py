@@ -32,6 +32,9 @@ DOCUMENT_STATUSES = ("pending", "processing", "ready", "failed")
 DOCUMENT_TYPES = ("pdf", "docx", "txt")
 LEAD_STATUSES = ("new", "contacted", "qualified", "won", "lost")
 LEAD_PRIORITIES = ("low", "medium", "high")
+MESSAGE_ROLES = ("user", "assistant")
+RUN_STATUSES = ("running", "completed", "failed")
+TOOL_STATUSES = ("ok", "error", "blocked")
 
 
 def utcnow() -> datetime:
@@ -215,4 +218,88 @@ class DocumentChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     token_count: Mapped[int] = mapped_column(Integer)
     embedding: Mapped[list[float]] = mapped_column(EmbeddingType)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------- AI agent (Phase 6) ----------
+class Conversation(Base):
+    """A private chat thread. Only the user who started it can see it."""
+
+    __tablename__ = "conversations"
+    __table_args__ = (Index("ix_conversations_user_updated", "organization_id", "user_id", "updated_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AgentRun(Base):
+    """One execution of the agent (one user message). Kept even if the conversation is deleted,
+    so the observability data survives."""
+
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        CheckConstraint(_in("status", RUN_STATUSES), name="ck_agent_run_status"),
+        Index("ix_agent_runs_org_started", "organization_id", "started_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    trace_id: Mapped[str] = mapped_column(String(32))  # shown in the UI so a run can be found later
+    status: Mapped[str] = mapped_column(String(12), default="running")
+    model: Mapped[str] = mapped_column(String(80))
+    steps: Mapped[int] = mapped_column(Integer, default=0)  # model calls
+    tool_call_count: Mapped[int] = mapped_column(Integer, default=0)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)  # user-safe text only
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint(_in("role", MESSAGE_ROLES), name="ck_message_role"),
+        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    role: Mapped[str] = mapped_column(String(10))
+    content: Mapped[str] = mapped_column(Text)
+    # Structured results the UI renders (lead tables, charts, sources, tool timeline).
+    blocks: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ToolExecution(Base):
+    """One tool call made by the agent: what was asked, whether it ran, and how long it took."""
+
+    __tablename__ = "tool_executions"
+    __table_args__ = (
+        CheckConstraint(_in("status", TOOL_STATUSES), name="ck_tool_execution_status"),
+        Index("ix_tool_executions_run", "run_id", "sequence"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"))
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    sequence: Mapped[int] = mapped_column(Integer)
+    tool_name: Mapped[str] = mapped_column(String(60))
+    status: Mapped[str] = mapped_column(String(10))  # ok | error | blocked
+    arguments: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

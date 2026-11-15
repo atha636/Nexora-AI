@@ -227,6 +227,7 @@ _SUMMARIES = {
     "document.failed": "Document failed to index",
     "document.reindexed": "Document re-index requested",
     "document.deleted": "Document deleted",
+    "agent.run": "AI assistant answered a question",
     "auth.logout": "Signed out",
 }
 
