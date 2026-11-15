@@ -1,6 +1,9 @@
 import axios from 'axios'
 import type {
   AskResponse,
+  ChatResponse,
+  ConversationDetail,
+  ConversationSummary,
   DocumentItem,
   SearchHit,
   DashboardOverview,
@@ -154,4 +157,20 @@ export const documentsApi = {
   search: async (query: string, topK = 5) =>
     (await api.post<{ query: string; hits: SearchHit[] }>('/documents/search', { query, top_k: topK })).data,
   ask: async (question: string) => (await api.post<AskResponse>('/documents/ask', { question })).data,
+}
+
+// ---------- AI assistant ----------
+export const agentApi = {
+  conversations: async () => (await api.get<ConversationSummary[]>('/agent/conversations')).data,
+  conversation: async (id: string) => (await api.get<ConversationDetail>(`/agent/conversations/${id}`)).data,
+  remove: async (id: string) => api.delete(`/agent/conversations/${id}`),
+  // The agent may call several tools in a row, so allow more time than the default.
+  chat: async (message: string, conversationId: string | null) =>
+    (
+      await api.post<ChatResponse>(
+        '/agent/chat',
+        { message, conversation_id: conversationId },
+        { timeout: 120_000 },
+      )
+    ).data,
 }

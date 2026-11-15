@@ -198,3 +198,109 @@ export interface AskResponse {
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt']
+
+// ---------- AI assistant ----------
+export interface ChatLead {
+  id: string
+  name: string
+  company: string | null
+  city: string | null
+  email: string | null
+  status: LeadStatus
+  priority: LeadPriority
+  last_contacted_at: string | null
+}
+
+export interface ToolStep {
+  name: string
+  status: 'ok' | 'error' | 'blocked'
+  duration_ms: number
+  summary: string | null
+  error: string | null
+}
+
+export interface SourceItem {
+  number: number
+  chunk_id: string
+  document_id: string
+  filename: string
+  page_number: number | null
+  chunk_index: number
+  snippet: string
+  score: number
+  cited: boolean
+}
+
+export interface SalesSummaryData {
+  currency: string
+  months: number
+  total_revenue: number
+  total_deals: number
+  average_deal: number
+  best_month: MonthRevenue | null
+  monthly: MonthRevenue[]
+  top_cities: LabelRevenue[]
+  top_salespeople: { name: string; revenue: number; deals: number; conversion_rate: number }[]
+}
+
+export interface LeadAnalyticsData {
+  months: number
+  leads_created_in_period: number
+  of_which_won_today: number
+  conversion_rate_percent: number
+  monthly: MonthLeads[]
+  all_leads_by_status: LabelCount[]
+  all_leads_by_source: LabelCount[]
+  all_leads_by_city: LabelCount[]
+}
+
+export type Block =
+  | { type: 'activity'; tools: ToolStep[] }
+  | {
+      type: 'leads'
+      tool: string
+      data: { total_matching: number; returned: number; filters: Record<string, string | number>; leads: ChatLead[] }
+    }
+  | {
+      type: 'lead_saved'
+      tool: string
+      data: { created?: boolean; updated?: boolean; changed?: Record<string, [unknown, unknown]>; lead: ChatLead }
+    }
+  | { type: 'sales_summary'; tool: string; data: SalesSummaryData }
+  | { type: 'lead_analytics'; tool: string; data: LeadAnalyticsData }
+  | { type: 'sources'; sources: SourceItem[] }
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  blocks: Block[] | null
+  run_id: string | null
+  created_at: string
+}
+
+export interface ConversationSummary {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConversationDetail extends ConversationSummary {
+  messages: ChatMessage[]
+}
+
+export interface ChatResponse {
+  conversation: ConversationSummary
+  user_message: ChatMessage
+  assistant_message: ChatMessage
+  run_id: string
+  trace_id: string
+  usage: {
+    steps: number
+    tool_calls: number
+    prompt_tokens: number | null
+    completion_tokens: number | null
+    duration_ms: number | null
+  }
+}
