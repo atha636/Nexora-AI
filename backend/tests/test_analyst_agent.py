@@ -98,8 +98,10 @@ def test_chat_agent_gets_analytics_block(client):
 def test_ask_requires_llm_config_message(client):
     h = signup(client)
     from app.main import app
-    from app.services.llm import get_chat_llm
+    from app.services.llm import _Unconfigured, get_chat_llm
 
-    app.dependency_overrides.pop(get_chat_llm, None)
+    # Force the "no API key" state, whatever the developer's .env contains.
+    app.dependency_overrides[get_chat_llm] = lambda: _Unconfigured()
     res = client.post(ASK, headers=h, json={"question": "revenue last month"})
     assert res.status_code == 503
+    assert "GROQ_API_KEY" in res.json()["detail"]
