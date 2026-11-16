@@ -9,6 +9,7 @@ import {
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LeadAcquisitionChart, RevenueChart } from '../charts/Charts'
+import AnalyticsResultView from '../analytics/AnalyticsResultView'
 import { PriorityBadge, StatusBadge } from '../leads/Badges'
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, titleCase } from '../../lib/format'
 import type { Block, ChatLead, SourceItem, ToolStep } from '../../lib/types'
@@ -20,6 +21,7 @@ const toolLabels: Record<string, string> = {
   search_documents: 'Searched documents',
   get_sales_summary: 'Checked sales',
   get_lead_analytics: 'Checked lead analytics',
+  query_analytics: 'Calculated a business metric',
 }
 
 const stepStyle: Record<ToolStep['status'], { icon: LucideIcon; color: string; label: string }> = {
@@ -293,6 +295,8 @@ export function ResultBlocks({ blocks, messageId }: { blocks: Block[] | null; me
             return <SalesBlock key={i} data={b.data} />
           case 'lead_analytics':
             return <LeadAnalyticsBlock key={i} data={b.data} />
+          case 'analytics_result':
+            return <AnalyticsResultView key={i} result={b.data} />
           case 'sources':
             return <SourcesBlock key={i} sources={b.sources} messageId={messageId} />
           default:

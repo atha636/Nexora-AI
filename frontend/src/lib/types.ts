@@ -254,7 +254,44 @@ export interface LeadAnalyticsData {
   all_leads_by_city: LabelCount[]
 }
 
+export interface AnalyticsRow {
+  label: string
+  value: number
+  previous?: number
+  change?: number
+  change_pct?: number | null
+  contribution_pct?: number
+}
+
+export interface AnalyticsResult {
+  metric: string
+  metric_label: string
+  unit: 'currency' | 'count' | 'percent'
+  group_by: string | null
+  group_label: string | null
+  period: { label: string; start: string | null; end: string | null }
+  previous_period: { label: string; start: string | null; end: string | null } | null
+  filters: Record<string, string>
+  total: number
+  previous_total: number | null
+  rows: AnalyticsRow[]
+  total_groups: number
+  truncated: boolean
+  notes: string[]
+  chart: { type: 'bar' | 'line'; x_key: string; y_key: string } | null
+}
+
+export interface AnalyticsAnswer {
+  answer: string
+  results: AnalyticsResult[]
+  run_id: string
+  trace_id: string
+  duration_ms: number | null
+  tools: { name: string; status: string; summary: string; error: string | null; duration_ms: number }[]
+}
+
 export type Block =
+  | { type: 'analytics_result'; tool: string; data: AnalyticsResult }
   | { type: 'activity'; tools: ToolStep[] }
   | {
       type: 'leads'

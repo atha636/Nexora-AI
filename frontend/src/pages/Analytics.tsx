@@ -8,6 +8,7 @@ import {
   RevenueChart,
   SalesPerformanceChart,
 } from '../components/charts/Charts'
+import AskAnalytics from '../components/analytics/AskAnalytics'
 import { Card } from '../components/ui/Card'
 import { inputClass } from '../components/ui/Field'
 import { analyticsApi } from '../lib/api'
@@ -60,7 +61,7 @@ export default function Analytics() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-          <p className="mt-1 text-sm text-slate-400">Revenue and lead performance. Natural-language questions arrive in Phase 7.</p>
+          <p className="mt-1 text-sm text-slate-400">Ask a question in plain English, or explore revenue and lead performance below.</p>
         </div>
         <select aria-label="Time range" className={`${inputClass} !w-auto`} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
           {RANGES.map((x) => (
@@ -70,6 +71,8 @@ export default function Analytics() {
           ))}
         </select>
       </div>
+
+      <AskAnalytics />
 
       <Card className="p-5">
         <p className="text-sm text-slate-400">Revenue in this period</p>

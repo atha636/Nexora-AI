@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  AnalyticsAnswer,
   AskResponse,
   ChatResponse,
   ConversationDetail,
@@ -142,6 +143,9 @@ export const analyticsApi = {
   dashboard: async () => (await api.get<DashboardOverview>('/dashboard/overview')).data,
   revenue: async (months: number) => (await api.get<RevenueAnalytics>('/analytics/revenue', { params: { months } })).data,
   leads: async (months: number) => (await api.get<LeadAnalytics>('/analytics/leads', { params: { months } })).data,
+  // The AI may run several queries, so allow more time than the default.
+  ask: async (question: string) =>
+    (await api.post<AnalyticsAnswer>('/analytics/ask', { question }, { timeout: 120_000 })).data,
 }
 
 // ---------- knowledge base ----------
