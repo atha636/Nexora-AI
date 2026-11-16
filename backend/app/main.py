@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import agent, auth, dashboard, documents, health, leads, sales, team
+from app.api.v1 import agent, auth, dashboard, documents, health, insights, leads, sales, team
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -46,5 +46,6 @@ for r in (
     agent.router,
     dashboard.dashboard_router,
     dashboard.analytics_router,
+    insights.router,
 ):
     app.include_router(r, prefix="/api/v1")

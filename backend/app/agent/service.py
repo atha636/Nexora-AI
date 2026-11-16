@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.agent.graph import build_agent_graph, initial_state
 from app.agent.nodes import AgentDeps, ToolRecord
-from app.agent.prompts import build_system_prompt
+from app.agent.prompts import build_analyst_prompt, build_system_prompt
 from app.agent.tools import TOOLS, ToolContext
 from app.api.deps import AuthContext, log_activity
 from app.db.models import AgentRun, Conversation, Message, ToolExecution, utcnow
@@ -100,7 +100,7 @@ def _history(db: Session, conversation_id: uuid.UUID) -> list[dict]:
 
 
 # ---------------------------------------------------------------- blocks for the UI
-_RESULT_KINDS = {"leads", "lead_saved", "sales_summary", "lead_analytics"}
+_RESULT_KINDS = {"leads", "lead_saved", "sales_summary", "lead_analytics", "analytics_result"}
 
 
 def build_blocks(records: list[ToolRecord], sources: list[dict], answer: str) -> list[dict]:
@@ -233,3 +233,51 @@ def _org_name(db: Session, ctx: AuthContext) -> str:
     from app.db.models import Organization
 
     return db.scalar(select(Organization.name).where(Organization.id == ctx.organization_id)) or "your company"
+
+
+# ---------------------------------------------------------------- analyst mode (stateless)
+@dataclass
+class AnalysisOutcome:
+    run: AgentRun
+    answer: str
+    results: list[dict]  # one analytics result per query_analytics call that succeeded
+    records: list[ToolRecord]
+
+
+def run_analysis(db: Session, ctx: AuthContext, llm: ChatLLM, embedder: Embedder, question: str) -> AnalysisOutcome:
+    """Answers one analytics question. Same graph and guards as the chat agent, but the only tool
+    is query_analytics (read-only) and nothing is stored in a conversation."""
+    run = AgentRun(
+        organization_id=ctx.organization_id,
+        user_id=ctx.user.id,
+        conversation_id=None,
+        trace_id=uuid.uuid4().hex,
+        model=llm.model,
+    )
+    db.add(run)
+    db.commit()
+    deps = AgentDeps(
+        llm=llm,
+        tool_ctx=ToolContext(db=db, auth=ctx, embedder=embedder),
+        tools={"query_analytics": TOOLS["query_analytics"]},
+        system_prompt=build_analyst_prompt(ctx.user.full_name, ctx.role, _org_name(db, ctx)),
+    )
+    started = time.perf_counter()
+    try:
+        final = build_agent_graph(deps).invoke(
+            initial_state([{"role": "user", "content": question}]), config={"recursion_limit": 25}
+        )
+    except LLMError as e:
+        _record_failure(db, run, deps, started, str(e))
+        raise
+    except Exception as e:  # noqa: BLE001
+        log.error("Analyst run %s failed: %s", run.trace_id, type(e).__name__)
+        _record_failure(db, run, deps, started, UNEXPECTED)
+        raise AgentFailure(UNEXPECTED) from None
+    answer = (final.get("final") or "").strip()
+    _finish_run(db, run, deps, started, final["steps"], error=None)
+    log_activity(db, ctx, entity_type="agent_run", entity_id=run.id, action="agent.run")
+    db.commit()
+    db.refresh(run)
+    results = [r.data for r in deps.records if r.status == "ok" and r.kind == "analytics_result" and r.data]
+    return AnalysisOutcome(run, answer, results, deps.records)

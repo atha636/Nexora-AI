@@ -21,6 +21,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.analyst.engine import run_query
+from app.analyst.spec import AnalyticsError, AnalyticsQuery
 from app.api.deps import ROLE_RANK, AuthContext, log_activity
 from app.core.config import get_settings
 from app.db.models import Lead
@@ -300,6 +302,16 @@ def _first_error(e: ValidationError) -> str:
     return f"{where}: {err.get('msg', 'invalid value')}" if where else str(err.get("msg", "invalid value"))
 
 
+def query_analytics(tc: ToolContext, a: AnalyticsQuery) -> ToolResult:
+    """Business numbers through the safe analytics engine (no free-form SQL; org-scoped; read-only)."""
+    try:
+        data = run_query(tc.db, tc.auth.organization_id, a)
+    except AnalyticsError as e:
+        raise ToolError(str(e)) from None
+    what = data["metric_label"] + (f" by {data['group_label'].lower()}" if data["group_label"] else "")
+    return ToolResult(data, "analytics_result", f"{what}: {data['period']['label']}")
+
+
 # ---------------------------------------------------------------- registry
 @dataclass(frozen=True)
 class Tool:
@@ -370,6 +382,15 @@ TOOLS: dict[str, Tool] = {
             "get_lead_analytics",
             "Lead acquisition and conversion for recent months, plus the breakdown of all leads by status, source and city.",
             PeriodArgs, get_lead_analytics,
+        ),
+        Tool(
+            "query_analytics",
+            "Calculate ONE business metric (revenue, deals, avg_deal, leads, won_leads, conversion_rate) for a time period, "
+            "optionally grouped by month, city, salesperson, source, priority or status and filtered. Use it for specific "
+            "questions: 'revenue last month', 'which city earns most', 'who converts best', monthly trends. "
+            "To explain a rise or fall, set compare_to_previous=true with a group_by: each group's change and share of the "
+            "overall change come back. Amounts are INR. last_month etc. are whole calendar months.",
+            AnalyticsQuery, query_analytics,
         ),
     ]
 }

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Nexora AI"
-    app_version: str = "0.6.0"
+    app_version: str = "0.7.0"
     environment: str = "development"
 
     # Postgres connection string (Supabase in production, local SQLite fallback for dev/tests).
@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     max_extracted_chars: int = 2_000_000
     max_chunks_per_document: int = 2000
     max_documents_per_org: int = 50  # keeps a free-tier database from filling up
+
+    # ---- Analytics questions (Phase 7) ----
+    # Optional: a SEPARATE read-only database login for analytics (see backend/scripts/readonly_role.sql).
+    analytics_database_url: str | None = None
+    analytics_timeout_ms: int = 5000
+    analytics_max_groups: int = 500
 
     # ---- Answers with citations (Phase 5) ----
     # "groq" calls the Groq API (free tier, needs GROQ_API_KEY). Without a key the ask endpoint
