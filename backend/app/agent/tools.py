@@ -25,10 +25,14 @@ from app.analyst.engine import run_query
 from app.analyst.spec import AnalyticsError, AnalyticsQuery
 from app.api.deps import ROLE_RANK, AuthContext, log_activity
 from app.core.config import get_settings
-from app.db.models import Lead
+from app.db.models import EmailDraft, Lead, Organization
 from app.schemas.lead import LeadCreate, LeadPriority, LeadStatus, LeadUpdate
 from app.services import analytics
+from app.schemas.email import Purpose, Tone
+from app.services.approvals import ApprovalError, request_email_approval
+from app.services.email_drafts import create_draft
 from app.services.embeddings import Embedder
+from app.services.llm import LLMError
 from app.services.search import search_chunks
 
 Short = Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
@@ -44,6 +48,7 @@ class ToolContext:
     db: Session
     auth: AuthContext
     embedder: Embedder
+    llm: object | None = None  # the model, used by draft_email to write the email text
     # Passages retrieved during this run, numbered 1, 2, 3... so answers can cite [n].
     sources: list[dict] = field(default_factory=list)
 
@@ -108,6 +113,19 @@ class UpdateLeadArgs(_Args):
 class SearchDocumentsArgs(_Args):
     query: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
     top_k: int = Field(4, ge=1, le=5)
+
+
+class DraftEmailArgs(_Args):
+    lead_ids: list[uuid.UUID] = Field(min_length=1, max_length=5, description="Ids of the leads to write to (from search_leads), at most 5")
+    tone: Tone = "friendly"
+    purpose: Purpose = "follow_up"
+    instructions: Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)] | None = Field(
+        None, description="Optional extra guidance from the user about content or style"
+    )
+
+
+class RequestApprovalArgs(_Args):
+    draft_ids: list[uuid.UUID] = Field(min_length=1, max_length=10, description="Ids of email drafts (from draft_email) to send for approval")
 
 
 class PeriodArgs(_Args):
@@ -312,6 +330,66 @@ def query_analytics(tc: ToolContext, a: AnalyticsQuery) -> ToolResult:
     return ToolResult(data, "analytics_result", f"{what}: {data['period']['label']}")
 
 
+def _my_draft(tc: ToolContext, draft_id: uuid.UUID) -> EmailDraft | None:
+    q = select(EmailDraft).where(EmailDraft.id == draft_id, EmailDraft.organization_id == tc.auth.organization_id)
+    if ROLE_RANK[tc.auth.role] < ROLE_RANK["manager"]:
+        q = q.where(EmailDraft.created_by == tc.auth.user.id)
+    return tc.db.scalar(q)
+
+
+def draft_email(tc: ToolContext, a: DraftEmailArgs) -> ToolResult:
+    """Writes drafts only. Nothing is sent: sending needs request_approval and a human decision."""
+    org_name = tc.db.scalar(select(Organization.name).where(Organization.id == tc.auth.organization_id)) or "our company"
+    drafts, skipped = [], []
+    for lead_id in dict.fromkeys(a.lead_ids):  # de-duplicated, order kept
+        lead = tc.db.scalar(select(Lead).where(Lead.id == lead_id, Lead.organization_id == tc.auth.organization_id))
+        if lead is None:
+            skipped.append({"lead_id": str(lead_id), "reason": "no such lead in this organization"})
+            continue
+        if not lead.email:
+            skipped.append({"lead_id": str(lead_id), "lead_name": lead.name, "reason": "the lead has no email address"})
+            continue
+        try:
+            d = create_draft(
+                tc.db, tc.auth, tc.llm, lead, org_name=org_name, tone=a.tone, purpose=a.purpose,
+                instructions=a.instructions, via="ai_agent",
+            )
+        except LLMError as e:
+            tc.db.rollback()
+            skipped.append({"lead_id": str(lead_id), "lead_name": lead.name, "reason": str(e)})
+            continue
+        drafts.append(
+            {"id": str(d.id), "lead_id": str(lead.id), "lead_name": lead.name, "to_email": d.to_email,
+             "subject": d.subject, "body": d.body, "status": d.status}
+        )
+    if not drafts:
+        raise ToolError("No drafts were written: " + "; ".join(x["reason"] for x in skipped))
+    tc.db.commit()
+    data = {"drafts": drafts, "skipped": skipped, "note": "Drafts are saved but NOT sent. Sending needs approval."}
+    return ToolResult(data, "email_drafts", f"Wrote {len(drafts)} email draft(s)" + (f", skipped {len(skipped)}" if skipped else ""))
+
+
+def request_approval(tc: ToolContext, a: RequestApprovalArgs) -> ToolResult:
+    """Asks a human to approve sending. The email is only sent if a manager or admin approves it."""
+    done, skipped = [], []
+    for draft_id in dict.fromkeys(a.draft_ids):
+        d = _my_draft(tc, draft_id)
+        if d is None:
+            skipped.append({"draft_id": str(draft_id), "reason": "no such draft"})
+            continue
+        try:
+            ap = request_email_approval(tc.db, tc.auth, d, via="ai_agent")
+        except ApprovalError as e:
+            skipped.append({"draft_id": str(draft_id), "reason": e.message})
+            continue
+        done.append({"id": str(ap.id), "title": ap.title, "status": ap.status, "to": ap.payload["to"], "subject": ap.payload["subject"]})
+    if not done:
+        raise ToolError("No approval was requested: " + "; ".join(x["reason"] for x in skipped))
+    tc.db.commit()
+    data = {"approvals": done, "skipped": skipped, "note": "Nothing has been sent. A manager or admin must approve each request."}
+    return ToolResult(data, "approval_requests", f"Requested approval for {len(done)} email(s)")
+
+
 # ---------------------------------------------------------------- registry
 @dataclass(frozen=True)
 class Tool:
@@ -391,6 +469,18 @@ TOOLS: dict[str, Tool] = {
             "To explain a rise or fall, set compare_to_previous=true with a group_by: each group's change and share of the "
             "overall change come back. Amounts are INR. last_month etc. are whole calendar months.",
             AnalyticsQuery, query_analytics,
+        ),
+        Tool(
+            "draft_email",
+            "Write personalized follow-up email drafts for up to 5 leads (ids from search_leads). Choose tone and purpose. "
+            "Drafts are only saved, never sent. Only use when the user asks for emails.",
+            DraftEmailArgs, draft_email, writes=True,
+        ),
+        Tool(
+            "request_approval",
+            "Send saved email drafts (ids from draft_email) to a manager for approval. This does NOT send them: "
+            "a human must approve. Only use when the user asks to send or submit the emails.",
+            RequestApprovalArgs, request_approval, writes=True,
         ),
     ]
 }

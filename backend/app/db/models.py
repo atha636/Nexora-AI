@@ -35,6 +35,8 @@ LEAD_PRIORITIES = ("low", "medium", "high")
 MESSAGE_ROLES = ("user", "assistant")
 RUN_STATUSES = ("running", "completed", "failed")
 TOOL_STATUSES = ("ok", "error", "blocked")
+DRAFT_STATUSES = ("draft", "pending_approval", "sent", "failed", "discarded")
+APPROVAL_STATUSES = ("pending", "approved", "rejected", "executed", "failed", "cancelled")
 
 
 def utcnow() -> datetime:
@@ -302,4 +304,62 @@ class ToolExecution(Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EmailDraft(Base):
+    """An email written for one lead. Nothing is ever sent from a draft directly: sending needs an
+    approved ApprovalRequest (see services/approvals.py)."""
+
+    __tablename__ = "email_drafts"
+    __table_args__ = (
+        CheckConstraint(_in("status", DRAFT_STATUSES), name="ck_email_draft_status"),
+        Index("ix_email_drafts_org_created", "organization_id", "created_at"),
+        Index("ix_email_drafts_lead", "lead_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("leads.id", ondelete="SET NULL"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    to_email: Mapped[str | None] = mapped_column(String(254), nullable=True)  # copied from the lead at draft time
+    subject: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    tone: Mapped[str] = mapped_column(String(20), default="friendly")
+    purpose: Mapped[str] = mapped_column(String(30), default="follow_up")
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+    ai_generated: Mapped[bool] = mapped_column(default=True)
+    model: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    approval_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)  # latest approval request
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ApprovalRequest(Base):
+    """A sensitive action waiting for a human decision. The `payload` is a snapshot taken when the
+    request was made, and it is exactly what runs on approval, so later edits can't change it."""
+
+    __tablename__ = "approval_requests"
+    __table_args__ = (
+        CheckConstraint(_in("status", APPROVAL_STATUSES), name="ck_approval_status"),
+        Index("ix_approvals_org_status", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    action_type: Mapped[str] = mapped_column(String(40))  # e.g. "send_email"
+    entity_type: Mapped[str] = mapped_column(String(30))
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    title: Mapped[str] = mapped_column(String(200))
+    payload: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(12), default="pending")
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    requested_via: Mapped[str] = mapped_column(String(20), default="user")  # user | ai_agent | workflow
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

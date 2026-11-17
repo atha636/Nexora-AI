@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Nexora AI"
-    app_version: str = "0.7.0"
+    app_version: str = "0.8.0"
     environment: str = "development"
 
     # Postgres connection string (Supabase in production, local SQLite fallback for dev/tests).
@@ -40,6 +40,17 @@ class Settings(BaseSettings):
     max_extracted_chars: int = 2_000_000
     max_chunks_per_document: int = 2000
     max_documents_per_org: int = 50  # keeps a free-tier database from filling up
+
+    # ---- Email (Phase 8) ----
+    # "mock" (default) only records that an email WOULD have been sent. Real sending needs BOTH
+    # EMAIL_PROVIDER=smtp and EMAIL_REAL_SENDING_ENABLED=true (an explicit, deliberate switch).
+    email_provider: str = "mock"
+    email_real_sending_enabled: bool = False
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_address: str | None = None
 
     # ---- Analytics questions (Phase 7) ----
     # Optional: a SEPARATE read-only database login for analytics (see backend/scripts/readonly_role.sql).

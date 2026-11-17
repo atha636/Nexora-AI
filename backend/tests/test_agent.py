@@ -129,7 +129,7 @@ def test_model_receives_only_tools_this_role_may_use(client):
     fake = use(say("ok"))
     chat(client, signup(client))
     names = [t["function"]["name"] for t in fake.calls[0][1]]
-    assert names == ["search_leads", "create_lead", "update_lead", "search_documents", "get_sales_summary", "get_lead_analytics", "query_analytics"]
+    assert names == ["search_leads", "create_lead", "update_lead", "search_documents", "get_sales_summary", "get_lead_analytics", "query_analytics", "draft_email", "request_approval"]
 
 
 # ------------------------------------------------------------------ the tools
@@ -502,7 +502,7 @@ def _has_title(node) -> bool:
 
 
 def test_every_tool_spec_is_well_formed():
-    assert len(TOOLS) == 7
+    assert len(TOOLS) == 9
     for name, tool in TOOLS.items():
         spec = tool.spec()["function"]
         assert spec["name"] == name and spec["description"] and spec["parameters"]["type"] == "object"

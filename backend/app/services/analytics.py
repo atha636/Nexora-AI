@@ -228,6 +228,15 @@ _SUMMARIES = {
     "document.reindexed": "Document re-index requested",
     "document.deleted": "Document deleted",
     "agent.run": "AI assistant answered a question",
+    "email.drafted": "Email draft written",
+    "email.edited": "Email draft edited",
+    "email.discarded": "Email draft discarded",
+    "email.sent": "Email sent",
+    "approval.requested": "Approval requested",
+    "approval.approved": "Request approved",
+    "approval.rejected": "Request rejected",
+    "approval.cancelled": "Request cancelled",
+    "approval.failed": "Approved action failed",
     "auth.logout": "Signed out",
 }
 

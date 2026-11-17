@@ -73,13 +73,16 @@ def _memory_note(blocks: list | None) -> str:
                     f'- id={lead["id"]} {lead["name"]} | {lead.get("company") or "-"} | {lead.get("city") or "-"} '
                     f'| {lead["priority"]} | {lead["status"]}'
                 )
+        elif block.get("type") == "email_drafts":
+            for d in block["data"].get("drafts", [])[:10]:
+                lines.append(f'- email draft id={d["id"]} for {d["lead_name"]}: "{d["subject"]}" ({d["status"]})')
         elif block.get("type") == "lead_saved":
             lead = block["data"]["lead"]
             lines.append(f'- id={lead["id"]} {lead["name"]} | {lead["priority"]} | {lead["status"]}')
     if not lines:
         return ""
     note = "\n".join(lines)[:MEMORY_CHARS]
-    return "\n\n[Leads shown to the user with this reply. Use these ids for follow-up requests:\n" + note + "\n]"
+    return "\n\n[Records shown to the user with this reply. Use these ids for follow-up requests:\n" + note + "\n]"
 
 
 def _history(db: Session, conversation_id: uuid.UUID) -> list[dict]:
@@ -100,7 +103,7 @@ def _history(db: Session, conversation_id: uuid.UUID) -> list[dict]:
 
 
 # ---------------------------------------------------------------- blocks for the UI
-_RESULT_KINDS = {"leads", "lead_saved", "sales_summary", "lead_analytics", "analytics_result"}
+_RESULT_KINDS = {"leads", "lead_saved", "sales_summary", "lead_analytics", "analytics_result", "email_drafts", "approval_requests"}
 
 
 def build_blocks(records: list[ToolRecord], sources: list[dict], answer: str) -> list[dict]:
@@ -173,7 +176,7 @@ def run_chat(
 
     deps = AgentDeps(
         llm=llm,
-        tool_ctx=ToolContext(db=db, auth=ctx, embedder=embedder),
+        tool_ctx=ToolContext(db=db, auth=ctx, embedder=embedder, llm=llm),
         tools=TOOLS,
         system_prompt=build_system_prompt(ctx.user.full_name, ctx.role, _org_name(db, ctx)),
     )
