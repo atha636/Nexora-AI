@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Mail, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PriorityBadge, StatusBadge } from '../components/leads/Badges'
+import GenerateEmailModal from '../components/emails/GenerateEmailModal'
 import LeadForm from '../components/leads/LeadForm'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
@@ -39,6 +40,7 @@ export default function LeadDetail() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [drafting, setDrafting] = useState(false)
 
   const lead = useQuery({ queryKey: ['lead', id], queryFn: () => leadsApi.get(id), retry: false })
   const activity = useQuery({ queryKey: ['lead', id, 'activity'], queryFn: () => leadsApi.activity(id), enabled: lead.isSuccess })
@@ -117,6 +119,9 @@ export default function LeadDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setDrafting(true)}>
+            <Mail className="h-4 w-4" aria-hidden /> Draft email
+          </Button>
           <Button variant="outline" onClick={() => setEditing(true)}>
             <Pencil className="h-4 w-4" aria-hidden /> Edit
           </Button>
@@ -177,6 +182,18 @@ export default function LeadDetail() {
           onCancel={() => setEditing(false)}
         />
       </Modal>
+      <GenerateEmailModal
+        open={drafting}
+        leadId={l.id}
+        leadName={l.name}
+        hasEmail={!!l.email}
+        onClose={() => setDrafting(false)}
+        onCreated={(d) => {
+          toast.success('Draft written. Review it before requesting approval.')
+          setDrafting(false)
+          navigate(`/emails?open=${d.id}`)
+        }}
+      />
       <ConfirmDialog
         open={deleting}
         title="Delete lead?"

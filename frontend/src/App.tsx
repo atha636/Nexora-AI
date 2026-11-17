@@ -4,6 +4,8 @@ import AppLayout from './components/layout/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import ComingSoon from './pages/ComingSoon'
 import LeadDetail from './pages/LeadDetail'
+import Approvals from './pages/Approvals'
+import Emails from './pages/Emails'
 import Knowledge from './pages/Knowledge'
 import Leads from './pages/Leads'
 import Login from './pages/Login'
@@ -16,7 +18,6 @@ const Assistant = lazy(() => import('./pages/Assistant')) // pulls in the markdo
 
 const placeholders = [
   { path: 'workflows', title: 'Workflows' },
-  { path: 'approvals', title: 'Approvals' },
   { path: 'settings', title: 'Settings' },
 ]
 
@@ -32,6 +33,8 @@ export default function App() {
           <Route path="assistant" element={<Assistant />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="knowledge" element={<Knowledge />} />
+          <Route path="emails" element={<Emails />} />
+          <Route path="approvals" element={<Approvals />} />
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />
           {placeholders.map((p) => (

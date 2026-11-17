@@ -290,7 +290,62 @@ export interface AnalyticsAnswer {
   tools: { name: string; status: string; summary: string; error: string | null; duration_ms: number }[]
 }
 
+// ---------- email drafts and approvals ----------
+export interface EmailDraft {
+  id: string
+  lead_id: string | null
+  lead_name: string | null
+  to_email: string | null
+  subject: string
+  body: string
+  tone: string
+  purpose: string
+  status: 'draft' | 'pending_approval' | 'sent' | 'failed' | 'discarded'
+  ai_generated: boolean
+  approval_id: string | null
+  sent_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailMeta {
+  tones: string[]
+  purposes: string[]
+  provider: string
+  simulated: boolean
+}
+
+export interface ApprovalItem {
+  id: string
+  action_type: string
+  entity_id: string | null
+  title: string
+  payload: { to?: string; subject?: string; body?: string; lead_name?: string; lead_id?: string }
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed' | 'cancelled'
+  requested_by_name: string | null
+  requested_via: string
+  decided_by_name: string | null
+  decided_at: string | null
+  decision_note: string | null
+  executed_at: string | null
+  result: { provider?: string; simulated?: boolean } | null
+  error_message: string | null
+  created_at: string
+  can_decide: boolean
+  can_cancel: boolean
+}
+
 export type Block =
+  | {
+      type: 'email_drafts'
+      tool: string
+      data: { drafts: Pick<EmailDraft, 'id' | 'lead_name' | 'to_email' | 'subject' | 'body' | 'status'>[]; skipped: { reason: string; lead_name?: string }[] }
+    }
+  | {
+      type: 'approval_requests'
+      tool: string
+      data: { approvals: { id: string; title: string; status: string; to: string; subject: string }[]; skipped: { reason: string }[] }
+    }
   | { type: 'analytics_result'; tool: string; data: AnalyticsResult }
   | { type: 'activity'; tools: ToolStep[] }
   | {

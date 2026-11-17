@@ -22,6 +22,8 @@ const toolLabels: Record<string, string> = {
   get_sales_summary: 'Checked sales',
   get_lead_analytics: 'Checked lead analytics',
   query_analytics: 'Calculated a business metric',
+  draft_email: 'Wrote email drafts',
+  request_approval: 'Requested approval',
 }
 
 const stepStyle: Record<ToolStep['status'], { icon: LucideIcon; color: string; label: string }> = {
@@ -275,6 +277,52 @@ function SourcesBlock({ sources, messageId }: { sources: SourceItem[]; messageId
   )
 }
 
+// ---------------------------------------------------------------- emails and approvals
+function EmailDraftsBlock({ data }: { data: Extract<Block, { type: 'email_drafts' }>['data'] }) {
+  return (
+    <Panel className="p-3">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+        {data.drafts.length} email draft{data.drafts.length === 1 ? '' : 's'} · saved, not sent
+      </p>
+      <ul className="space-y-2">
+        {data.drafts.map((d) => (
+          <li key={d.id} className="rounded-lg border border-line p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium">{d.subject}</p>
+              <Link to={`/emails?open=${d.id}`} className="text-xs text-electric hover:underline">
+                Review &amp; edit
+              </Link>
+            </div>
+            <p className="text-xs text-slate-400">To {d.lead_name}</p>
+            <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-slate-300">{d.body}</p>
+          </li>
+        ))}
+      </ul>
+      {data.skipped.length > 0 && <p className="mt-2 text-xs text-amber-300">Skipped {data.skipped.length}: {data.skipped.map((s) => s.reason).join('; ')}</p>}
+    </Panel>
+  )
+}
+
+function ApprovalsBlock({ data }: { data: Extract<Block, { type: 'approval_requests' }>['data'] }) {
+  return (
+    <Panel className="p-3">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+        {data.approvals.length} request{data.approvals.length === 1 ? '' : 's'} waiting for approval
+      </p>
+      <ul className="space-y-1 text-sm">
+        {data.approvals.map((a) => (
+          <li key={a.id}>
+            {a.subject} <span className="text-slate-500">→ {a.to}</span>
+          </li>
+        ))}
+      </ul>
+      <Link to="/approvals" className="mt-2 inline-block text-xs text-electric hover:underline">
+        Open Approvals
+      </Link>
+    </Panel>
+  )
+}
+
 // ---------------------------------------------------------------- public pieces
 export function ActivityBlock({ blocks }: { blocks: Block[] | null }) {
   const activity = blocks?.find((b): b is Extract<Block, { type: 'activity' }> => b.type === 'activity')
@@ -297,6 +345,10 @@ export function ResultBlocks({ blocks, messageId }: { blocks: Block[] | null; me
             return <LeadAnalyticsBlock key={i} data={b.data} />
           case 'analytics_result':
             return <AnalyticsResultView key={i} result={b.data} />
+          case 'email_drafts':
+            return <EmailDraftsBlock key={i} data={b.data} />
+          case 'approval_requests':
+            return <ApprovalsBlock key={i} data={b.data} />
           case 'sources':
             return <SourcesBlock key={i} sources={b.sources} messageId={messageId} />
           default:

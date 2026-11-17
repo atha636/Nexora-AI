@@ -6,14 +6,17 @@ import {
   GitBranch,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
   Settings,
   Sparkles,
   Users,
   X,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { approvalsApi } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 
 const nav = [
@@ -23,11 +26,14 @@ const nav = [
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/workflows', label: 'Workflows', icon: GitBranch },
+  { to: '/emails', label: 'Emails', icon: Mail },
   { to: '/approvals', label: 'Approvals', icon: CheckSquare },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const pending = useQuery({ queryKey: ['approvals', 'pending'], queryFn: () => approvalsApi.list('pending'), refetchInterval: 60_000 })
+  const pendingCount = pending.data?.pending ?? 0
   return (
     <nav aria-label="Main" className="flex h-full flex-col gap-1 p-4">
       <div className="mb-6 flex items-center gap-2 px-2">
@@ -52,6 +58,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="h-4 w-4" aria-hidden />
           {label}
+          {to === '/approvals' && pendingCount > 0 && (
+            <span aria-label={`${pendingCount} pending`} className="ml-auto rounded-full bg-amber-500/20 px-2 text-xs text-amber-300">
+              {pendingCount}
+            </span>
+          )}
         </NavLink>
       ))}
     </nav>

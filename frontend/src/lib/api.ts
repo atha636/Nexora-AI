@@ -1,5 +1,8 @@
 import axios from 'axios'
 import type {
+  ApprovalItem,
+  EmailDraft,
+  EmailMeta,
   AnalyticsAnswer,
   AskResponse,
   ChatResponse,
@@ -177,4 +180,33 @@ export const agentApi = {
         { timeout: 120_000 },
       )
     ).data,
+}
+
+// ---------- email drafts ----------
+export interface DraftInput {
+  lead_id: string
+  tone: string
+  purpose: string
+  instructions?: string
+}
+
+export const emailsApi = {
+  meta: async () => (await api.get<EmailMeta>('/emails/meta')).data,
+  list: async (status?: string) =>
+    (await api.get<{ items: EmailDraft[]; total: number }>('/emails/drafts', { params: { status, page_size: 50 } })).data,
+  // Writing a draft calls the AI model, so allow extra time.
+  create: async (input: DraftInput) => (await api.post<EmailDraft>('/emails/drafts', input, { timeout: 90_000 })).data,
+  update: async (id: string, input: { subject?: string; body?: string }) =>
+    (await api.patch<EmailDraft>(`/emails/drafts/${id}`, input)).data,
+  remove: async (id: string) => api.delete(`/emails/drafts/${id}`),
+  requestApproval: async (id: string) => (await api.post<ApprovalItem>(`/emails/drafts/${id}/request-approval`)).data,
+}
+
+// ---------- approvals ----------
+export const approvalsApi = {
+  list: async (scope: 'pending' | 'history') =>
+    (await api.get<{ items: ApprovalItem[]; total: number; pending: number }>('/approvals', { params: { scope, page_size: 50 } })).data,
+  approve: async (id: string, note?: string) => (await api.post<ApprovalItem>(`/approvals/${id}/approve`, { note })).data,
+  reject: async (id: string, note?: string) => (await api.post<ApprovalItem>(`/approvals/${id}/reject`, { note })).data,
+  cancel: async (id: string) => (await api.post<ApprovalItem>(`/approvals/${id}/cancel`)).data,
 }

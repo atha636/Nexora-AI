@@ -1,11 +1,17 @@
+/** The API sends UTC. SQLite (local dev) drops the "Z", and browsers would then read the time as local,
+ *  so a fresh item could show "5h ago" in India. Treat timestamps without a zone as UTC. */
+export function parseTime(iso: string): Date {
+  return new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) || !iso.includes('T') ? iso : `${iso}Z`)
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const d = parseTime(iso)
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function formatDateTime(iso: string): string {
-  const d = new Date(iso)
+  const d = parseTime(iso)
   return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
@@ -44,7 +50,7 @@ export function monthLabel(key: string): string {
 }
 
 export function timeAgo(iso: string): string {
-  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  const seconds = Math.max(0, (Date.now() - parseTime(iso).getTime()) / 1000)
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}m ago`
