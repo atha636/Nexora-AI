@@ -25,7 +25,7 @@ from app.analyst.engine import run_query
 from app.analyst.spec import AnalyticsError, AnalyticsQuery
 from app.api.deps import ROLE_RANK, AuthContext, log_activity
 from app.core.config import get_settings
-from app.db.models import EmailDraft, Lead, Organization
+from app.db.models import EmailDraft, Lead, Organization, Workflow, WorkflowExecution
 from app.schemas.lead import LeadCreate, LeadPriority, LeadStatus, LeadUpdate
 from app.services import analytics
 from app.schemas.email import Purpose, Tone
@@ -33,6 +33,7 @@ from app.services.approvals import ApprovalError, request_email_approval
 from app.services.email_drafts import create_draft
 from app.services.embeddings import Embedder
 from app.services.llm import LLMError
+from app.services.workflows import trigger_lead_created
 from app.services.search import search_chunks
 
 Short = Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
@@ -124,6 +125,11 @@ class DraftEmailArgs(_Args):
     )
 
 
+class WorkflowStatusArgs(_Args):
+    workflow_name: Short | None = Field(None, description="Part of a workflow's name. Omit to see all workflows.")
+    runs: int = Field(3, ge=1, le=10, description="How many recent runs to show per workflow")
+
+
 class RequestApprovalArgs(_Args):
     draft_ids: list[uuid.UUID] = Field(min_length=1, max_length=10, description="Ids of email drafts (from draft_email) to send for approval")
 
@@ -205,6 +211,7 @@ def create_lead(tc: ToolContext, a: CreateLeadArgs) -> ToolResult:
         tc.db, tc.auth, entity_type="lead", entity_id=lead.id, action="lead.created",
         details={"name": lead.name, "via": "ai_agent"},
     )
+    trigger_lead_created(tc.db, tc.auth, lead)  # queued only: a person starts the run from the Workflows page
     tc.db.commit()
     tc.db.refresh(lead)
     return ToolResult({"created": True, "lead": _lead_dict(lead)}, "lead_saved", f"Created lead {lead.name}")
@@ -390,6 +397,31 @@ def request_approval(tc: ToolContext, a: RequestApprovalArgs) -> ToolResult:
     return ToolResult(data, "approval_requests", f"Requested approval for {len(done)} email(s)")
 
 
+def get_workflow_status(tc: ToolContext, a: WorkflowStatusArgs) -> ToolResult:
+    """Read-only: which workflows exist and how their recent runs went."""
+    q = select(Workflow).where(Workflow.organization_id == tc.auth.organization_id).order_by(Workflow.created_at.desc()).limit(10)
+    if a.workflow_name:
+        q = q.where(func.lower(Workflow.name).contains(a.workflow_name.lower()))
+    items = []
+    for w in tc.db.scalars(q):
+        runs = tc.db.scalars(
+            select(WorkflowExecution).where(WorkflowExecution.workflow_id == w.id).order_by(WorkflowExecution.created_at.desc()).limit(a.runs)
+        ).all()
+        items.append(
+            {
+                "id": str(w.id), "name": w.name, "trigger": w.trigger_type, "active": w.is_active,
+                "steps": [x["type"] for x in w.actions],
+                "recent_runs": [
+                    {"id": str(r.id), "status": r.status, "lead": r.lead_name, "error": r.error_message, "at": r.created_at.isoformat()}
+                    for r in runs
+                ],
+            }
+        )
+    if not items:
+        raise ToolError("No workflows found" + (f" matching '{a.workflow_name}'." if a.workflow_name else "."))
+    return ToolResult({"workflows": items}, "workflow_status", f"Checked {len(items)} workflow(s)")
+
+
 # ---------------------------------------------------------------- registry
 @dataclass(frozen=True)
 class Tool:
@@ -469,6 +501,11 @@ TOOLS: dict[str, Tool] = {
             "To explain a rise or fall, set compare_to_previous=true with a group_by: each group's change and share of the "
             "overall change come back. Amounts are INR. last_month etc. are whole calendar months.",
             AnalyticsQuery, query_analytics,
+        ),
+        Tool(
+            "get_workflow_status",
+            "See which automations (workflows) exist, whether they are active, and how their latest runs went (completed, failed, waiting for approval). Read-only.",
+            WorkflowStatusArgs, get_workflow_status,
         ),
         Tool(
             "draft_email",

@@ -10,6 +10,7 @@ from app.schemas.analytics import (
     RevenueAnalytics,
 )
 from app.services import analytics as svc
+from app.services.briefing import build_briefing
 
 # Both routers are read-only and open to every member of the organization.
 dashboard_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -31,6 +32,12 @@ def dashboard_overview(
         sales_performance=svc.sales_performance(db, org, 12),
         recent_activity=svc.recent_activity(db, org, 10),
     )
+
+
+@dashboard_router.get("/briefing")
+def dashboard_briefing(ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> dict:
+    """What needs attention today. Built from the database, not from an AI model."""
+    return build_briefing(db, ctx)
 
 
 @analytics_router.get("/overview", response_model=AnalyticsOverview)

@@ -1,13 +1,13 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_auth_context, log_activity, require_role
 from app.db.models import ActivityLog, Lead, OrganizationMember, Profile
-from app.db.session import get_db
+from app.db.session import get_db, get_session_factory
 from app.schemas.lead import (
     ActivityOut,
     BulkDelete,
@@ -19,6 +19,8 @@ from app.schemas.lead import (
     LeadStatus,
     LeadUpdate,
 )
+from app.services.llm import ChatLLM, get_chat_llm
+from app.services.workflows import run_in_background, trigger_lead_created
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -128,8 +130,11 @@ def list_cities(
 @router.post("", response_model=LeadOut, status_code=status.HTTP_201_CREATED)
 def create_lead(
     body: LeadCreate,
+    background_tasks: BackgroundTasks,
     ctx: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
+    session_factory=Depends(get_session_factory),
+    llm: ChatLLM = Depends(get_chat_llm),
 ) -> Lead:
     _check_assignee(db, ctx, body.assigned_to)
     lead = Lead(**body.model_dump(), organization_id=ctx.organization_id)
@@ -143,8 +148,11 @@ def create_lead(
         action="lead.created",
         details={"name": lead.name},
     )
+    queued = trigger_lead_created(db, ctx, lead)  # "when a lead is created" workflows; no AI calls yet
     db.commit()
     db.refresh(lead)
+    for execution_id in queued:  # the AI work happens after the response, so creating a lead stays fast
+        background_tasks.add_task(run_in_background, session_factory, llm, execution_id, ctx.user.id, ctx.organization_id)
     return lead
 
 

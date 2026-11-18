@@ -17,6 +17,13 @@ from app.db.models import ApprovalRequest, EmailDraft, Lead, utcnow
 from app.services.email_provider import EmailSendError, get_email_provider
 
 
+def _notify_workflows(db: Session, a: ApprovalRequest) -> None:
+    """Lets a workflow run that was waiting for this request finish (imported lazily: workflows uses this module)."""
+    from app.services.workflows import on_approval_finished
+
+    on_approval_finished(db, a)
+
+
 class ApprovalError(Exception):
     def __init__(self, status_code: int, message: str):
         super().__init__(message)
@@ -130,6 +137,7 @@ def reject(db: Session, ctx: AuthContext, approval_id: uuid.UUID, note: str | No
     if draft and draft.status == "pending_approval":
         draft.status = "draft"  # the author can revise and ask again
     log_activity(db, ctx, entity_type="approval", entity_id=a.id, action="approval.rejected")
+    _notify_workflows(db, a)
     db.commit()
     db.refresh(a)
     return a
@@ -155,6 +163,7 @@ def cancel(db: Session, ctx: AuthContext, approval_id: uuid.UUID) -> ApprovalReq
     if draft and draft.status == "pending_approval":
         draft.status = "draft"
     log_activity(db, ctx, entity_type="approval", entity_id=a.id, action="approval.cancelled")
+    _notify_workflows(db, a)
     db.commit()
     db.refresh(a)
     return a
@@ -177,6 +186,7 @@ def _execute(db: Session, ctx: AuthContext, a: ApprovalRequest) -> ApprovalReque
         if draft:
             draft.status = "failed"
         log_activity(db, ctx, entity_type="approval", entity_id=a.id, action="approval.failed")
+        _notify_workflows(db, a)
         db.commit()
         db.refresh(a)
         return a
@@ -192,6 +202,7 @@ def _execute(db: Session, ctx: AuthContext, a: ApprovalRequest) -> ApprovalReque
         db, ctx, entity_type="approval", entity_id=a.id, action="email.sent",
         details={"provider": receipt.provider, "simulated": receipt.simulated, "lead_id": p["lead_id"]},
     )
+    _notify_workflows(db, a)
     db.commit()
     db.refresh(a)
     return a

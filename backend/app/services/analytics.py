@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import ActivityLog, Document, Lead, OrganizationMember, Profile, Sale
+from app.db.models import ActivityLog, ApprovalRequest, Document, Lead, OrganizationMember, Profile, Sale, Workflow
 from app.schemas.analytics import (
     ActivityItem,
     Kpis,
@@ -80,8 +80,8 @@ def kpis(db: Session, org_id: uuid.UUID) -> Kpis:
         won_leads=won,
         total_revenue=float(revenue),
         conversion_rate=_pct(won, total_leads),
-        active_workflows=0,
-        pending_approvals=0,
+        active_workflows=db.scalar(select(func.count()).select_from(Workflow).where(Workflow.organization_id == org_id, Workflow.is_active.is_(True))) or 0,
+        pending_approvals=db.scalar(select(func.count()).select_from(ApprovalRequest).where(ApprovalRequest.organization_id == org_id, ApprovalRequest.status == "pending")) or 0,
         documents_indexed=documents_ready,
     )
 
@@ -228,6 +228,14 @@ _SUMMARIES = {
     "document.reindexed": "Document re-index requested",
     "document.deleted": "Document deleted",
     "agent.run": "AI assistant answered a question",
+    "workflow.created": "Workflow created",
+    "workflow.updated": "Workflow updated",
+    "workflow.deleted": "Workflow deleted",
+    "workflow.completed": "Workflow run completed",
+    "workflow.failed": "Workflow run failed",
+    "workflow.skipped": "Workflow run skipped (conditions not met)",
+    "workflow.cancelled": "Workflow run cancelled",
+    "workflow.waiting_approval": "Workflow run waiting for approval",
     "email.drafted": "Email draft written",
     "email.edited": "Email draft edited",
     "email.discarded": "Email draft discarded",

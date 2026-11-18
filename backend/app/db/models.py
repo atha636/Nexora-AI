@@ -36,6 +36,8 @@ MESSAGE_ROLES = ("user", "assistant")
 RUN_STATUSES = ("running", "completed", "failed")
 TOOL_STATUSES = ("ok", "error", "blocked")
 DRAFT_STATUSES = ("draft", "pending_approval", "sent", "failed", "discarded")
+WORKFLOW_TRIGGERS = ("manual", "lead_created")
+EXECUTION_STATUSES = ("queued", "running", "waiting_approval", "completed", "failed", "cancelled", "skipped")
 APPROVAL_STATUSES = ("pending", "approved", "rejected", "executed", "failed", "cancelled")
 
 
@@ -362,4 +364,60 @@ class ApprovalRequest(Base):
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Workflow(Base):
+    """A saved automation: a trigger, optional conditions on the lead, and an ordered list of actions.
+    The definition is stored as validated JSON (see schemas/workflow.py)."""
+
+    __tablename__ = "workflows"
+    __table_args__ = (
+        CheckConstraint(_in("trigger_type", WORKFLOW_TRIGGERS), name="ck_workflow_trigger"),
+        Index("ix_workflows_org", "organization_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    trigger_type: Mapped[str] = mapped_column(String(20), default="manual")
+    conditions: Mapped[list] = mapped_column(JSON, default=list)
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WorkflowExecution(Base):
+    """One run of a workflow on one lead. The row is also the run's checkpoint: `cursor` is the
+    next action to run, so a failed or paused run can be resumed exactly where it stopped.
+    `definition` is a snapshot, so editing the workflow later never changes a run in progress."""
+
+    __tablename__ = "workflow_executions"
+    __table_args__ = (
+        CheckConstraint(_in("status", EXECUTION_STATUSES), name="ck_execution_status"),
+        Index("ix_executions_org_created", "organization_id", "created_at"),
+        Index("ix_executions_workflow", "workflow_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    workflow_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True)
+    workflow_name: Mapped[str] = mapped_column(String(120))
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("leads.id", ondelete="SET NULL"), nullable=True)
+    lead_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    trigger_source: Mapped[str] = mapped_column(String(20), default="manual")
+    status: Mapped[str] = mapped_column(String(20), default="queued")
+    definition: Mapped[dict] = mapped_column(JSON)
+    cursor: Mapped[int] = mapped_column(default=0)
+    attempts: Mapped[int] = mapped_column(default=0)  # how many times a run was started (first run + retries)
+    context: Mapped[dict] = mapped_column(JSON, default=dict)  # e.g. draft_id, approval_id
+    steps: Mapped[list] = mapped_column(JSON, default=list)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trace_id: Mapped[str] = mapped_column(String(32), default=lambda: uuid.uuid4().hex)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

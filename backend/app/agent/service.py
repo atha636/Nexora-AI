@@ -103,7 +103,7 @@ def _history(db: Session, conversation_id: uuid.UUID) -> list[dict]:
 
 
 # ---------------------------------------------------------------- blocks for the UI
-_RESULT_KINDS = {"leads", "lead_saved", "sales_summary", "lead_analytics", "analytics_result", "email_drafts", "approval_requests"}
+_RESULT_KINDS = {"leads", "lead_saved", "sales_summary", "lead_analytics", "analytics_result", "email_drafts", "approval_requests", "workflow_status"}
 
 
 def build_blocks(records: list[ToolRecord], sources: list[dict], answer: str) -> list[dict]:
