@@ -1,5 +1,9 @@
 import axios from 'axios'
 import type {
+  BriefingItem,
+  Execution,
+  Workflow,
+  WorkflowDefinition,
   ApprovalItem,
   EmailDraft,
   EmailMeta,
@@ -144,6 +148,7 @@ export const leadsApi = {
 // ---------- dashboard & analytics ----------
 export const analyticsApi = {
   dashboard: async () => (await api.get<DashboardOverview>('/dashboard/overview')).data,
+  briefing: async () => (await api.get<{ items: BriefingItem[] }>('/dashboard/briefing')).data,
   revenue: async (months: number) => (await api.get<RevenueAnalytics>('/analytics/revenue', { params: { months } })).data,
   leads: async (months: number) => (await api.get<LeadAnalytics>('/analytics/leads', { params: { months } })).data,
   // The AI may run several queries, so allow more time than the default.
@@ -209,4 +214,20 @@ export const approvalsApi = {
   approve: async (id: string, note?: string) => (await api.post<ApprovalItem>(`/approvals/${id}/approve`, { note })).data,
   reject: async (id: string, note?: string) => (await api.post<ApprovalItem>(`/approvals/${id}/reject`, { note })).data,
   cancel: async (id: string) => (await api.post<ApprovalItem>(`/approvals/${id}/cancel`)).data,
+}
+
+// ---------- workflows ----------
+export const workflowsApi = {
+  list: async () => (await api.get<Workflow[]>('/workflows')).data,
+  create: async (body: WorkflowDefinition) => (await api.post<Workflow>('/workflows', body)).data,
+  update: async (id: string, body: Partial<WorkflowDefinition>) => (await api.patch<Workflow>(`/workflows/${id}`, body)).data,
+  remove: async (id: string) => api.delete(`/workflows/${id}`),
+  // Running drafts emails with the AI, so allow extra time.
+  execute: async (id: string, leadId: string) =>
+    (await api.post<Execution>(`/workflows/${id}/execute`, { lead_id: leadId }, { timeout: 120_000 })).data,
+  executions: async (status?: string) =>
+    (await api.get<{ items: Execution[]; total: number }>('/workflows/executions', { params: { status, page_size: 50 } })).data,
+  run: async (id: string) => (await api.post<Execution>(`/workflows/executions/${id}/run`, undefined, { timeout: 120_000 })).data,
+  retry: async (id: string) => (await api.post<Execution>(`/workflows/executions/${id}/retry`, undefined, { timeout: 120_000 })).data,
+  cancel: async (id: string) => (await api.post<Execution>(`/workflows/executions/${id}/cancel`)).data,
 }

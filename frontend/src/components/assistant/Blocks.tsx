@@ -24,6 +24,7 @@ const toolLabels: Record<string, string> = {
   query_analytics: 'Calculated a business metric',
   draft_email: 'Wrote email drafts',
   request_approval: 'Requested approval',
+  get_workflow_status: 'Checked workflows',
 }
 
 const stepStyle: Record<ToolStep['status'], { icon: LucideIcon; color: string; label: string }> = {
@@ -323,6 +324,28 @@ function ApprovalsBlock({ data }: { data: Extract<Block, { type: 'approval_reque
   )
 }
 
+function WorkflowStatusBlock({ data }: { data: Extract<Block, { type: 'workflow_status' }>['data'] }) {
+  return (
+    <Panel className="p-3">
+      <ul className="space-y-2 text-sm">
+        {data.workflows.map((w) => (
+          <li key={w.id}>
+            <p className="font-medium">
+              {w.name} <span className="text-xs font-normal text-slate-500">{w.active ? 'active' : 'paused'} · {w.trigger.replace('_', ' ')}</span>
+            </p>
+            <p className="text-xs text-slate-400">
+              {w.recent_runs.length === 0 ? 'No runs yet' : w.recent_runs.map((r) => `${r.lead ?? 'lead'}: ${r.status.replace('_', ' ')}`).join(' · ')}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <Link to="/workflows" className="mt-2 inline-block text-xs text-electric hover:underline">
+        Open Workflows
+      </Link>
+    </Panel>
+  )
+}
+
 // ---------------------------------------------------------------- public pieces
 export function ActivityBlock({ blocks }: { blocks: Block[] | null }) {
   const activity = blocks?.find((b): b is Extract<Block, { type: 'activity' }> => b.type === 'activity')
@@ -349,6 +372,8 @@ export function ResultBlocks({ blocks, messageId }: { blocks: Block[] | null; me
             return <EmailDraftsBlock key={i} data={b.data} />
           case 'approval_requests':
             return <ApprovalsBlock key={i} data={b.data} />
+          case 'workflow_status':
+            return <WorkflowStatusBlock key={i} data={b.data} />
           case 'sources':
             return <SourcesBlock key={i} sources={b.sources} messageId={messageId} />
           default:

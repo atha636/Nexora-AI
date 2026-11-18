@@ -16,6 +16,7 @@ import {
   RevenueChart,
   SalesPerformanceChart,
 } from '../components/charts/Charts'
+import BriefingCard from '../components/dashboard/BriefingCard'
 import { Card, Skeleton } from '../components/ui/Card'
 import { analyticsApi, errorMessage, fetchHealth } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -101,6 +102,8 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.full_name.split(' ')[0]}</h1>
         <p className="mt-1 text-sm text-slate-400">Live overview of {user?.organization.name}.</p>
       </div>
+
+      <BriefingCard />
 
       <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {kpiCards.map(({ label, icon: Icon, value, hint }) => (

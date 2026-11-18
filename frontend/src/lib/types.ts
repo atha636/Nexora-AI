@@ -335,7 +335,79 @@ export interface ApprovalItem {
   can_cancel: boolean
 }
 
+// ---------- workflows ----------
+export type WorkflowCondition = {
+  field: 'priority' | 'status' | 'city' | 'source' | 'days_since_contact' | 'has_email'
+  op: 'eq' | 'neq' | 'gte' | 'lte'
+  value: string | number | boolean
+}
+export type WorkflowAction =
+  | { type: 'draft_email'; tone: string; purpose: string; instructions?: string }
+  | { type: 'request_approval' }
+  | { type: 'update_lead'; status?: LeadStatus; priority?: LeadPriority }
+
+export interface WorkflowDefinition {
+  name: string
+  description: string | null
+  trigger_type: 'manual' | 'lead_created'
+  conditions: WorkflowCondition[]
+  actions: WorkflowAction[]
+  is_active: boolean
+}
+export interface Workflow extends WorkflowDefinition {
+  id: string
+  created_by_name: string | null
+  created_at: string
+  updated_at: string
+  run_count: number
+  last_run: { id: string; status: string; lead_name: string | null; created_at: string } | null
+}
+export interface ExecutionStep {
+  index: number
+  type: string
+  status: 'ok' | 'error' | 'waiting'
+  summary: string
+  error: string | null
+  duration_ms: number
+  attempts: number
+  at: string
+}
+export interface Execution {
+  id: string
+  workflow_id: string | null
+  workflow_name: string
+  lead_id: string | null
+  lead_name: string | null
+  trigger_source: string
+  status: 'queued' | 'running' | 'waiting_approval' | 'completed' | 'failed' | 'cancelled' | 'skipped'
+  cursor: number
+  total_steps: number
+  attempts: number
+  definition: { conditions: WorkflowCondition[]; actions: WorkflowAction[] }
+  steps: ExecutionStep[]
+  context: { approval_id?: string; draft_id?: string }
+  error_message: string | null
+  trace_id: string
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  created_by_name: string | null
+}
+export interface BriefingItem {
+  key: string
+  title: string
+  value: string
+  detail: string
+  tone: 'good' | 'warn' | 'neutral'
+  href: string
+}
+
 export type Block =
+  | {
+      type: 'workflow_status'
+      tool: string
+      data: { workflows: { id: string; name: string; trigger: string; active: boolean; steps: string[]; recent_runs: { id: string; status: string; lead: string | null; error: string | null }[] }[] }
+    }
   | {
       type: 'email_drafts'
       tool: string

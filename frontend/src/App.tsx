@@ -7,6 +7,7 @@ import LeadDetail from './pages/LeadDetail'
 import Approvals from './pages/Approvals'
 import Emails from './pages/Emails'
 import Knowledge from './pages/Knowledge'
+import Workflows from './pages/Workflows'
 import Leads from './pages/Leads'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -17,7 +18,6 @@ const Analytics = lazy(() => import('./pages/Analytics'))
 const Assistant = lazy(() => import('./pages/Assistant')) // pulls in the markdown renderer and charts
 
 const placeholders = [
-  { path: 'workflows', title: 'Workflows' },
   { path: 'settings', title: 'Settings' },
 ]
 
@@ -34,6 +34,7 @@ export default function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="knowledge" element={<Knowledge />} />
           <Route path="emails" element={<Emails />} />
+          <Route path="workflows" element={<Workflows />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />
