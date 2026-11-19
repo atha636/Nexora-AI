@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.agent.service import AgentFailure, run_analysis
 from app.analyst.engine import run_query
 from app.analyst.spec import DIMENSION_LABELS, METRICS, AnalyticsError, AnalyticsQuery
+from app.core.ratelimit import rate_limit
 from app.api.deps import AuthContext, get_auth_context
 from app.db.session import get_db
 from app.schemas.insights import AnalysisResponse, AskAnalyticsRequest
@@ -36,7 +37,7 @@ def query(body: AnalyticsQuery, ctx: AuthContext = Depends(get_auth_context), db
         raise HTTPException(422, str(e)) from None
 
 
-@router.post("/ask", response_model=AnalysisResponse)
+@router.post("/ask", response_model=AnalysisResponse, dependencies=[Depends(rate_limit("analytics_ask", 20))])
 def ask(
     body: AskAnalyticsRequest,
     ctx: AuthContext = Depends(get_auth_context),

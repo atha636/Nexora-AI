@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.db.models import ActivityLog, OrganizationMember, Profile
 from app.db.session import get_db
+from app.db.tenancy import bind_tenant
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -61,6 +62,7 @@ def get_auth_context(
     )
     if membership is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No organization membership")
+    bind_tenant(db, membership.organization_id)
     return AuthContext(user=user, organization_id=membership.organization_id, role=membership.role)
 
 

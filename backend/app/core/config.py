@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Nexora AI"
-    app_version: str = "0.8.0"
+    app_version: str = "1.0.0-rc1"
     environment: str = "development"
 
     # Postgres connection string (Supabase in production, local SQLite fallback for dev/tests).
@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     max_extracted_chars: int = 2_000_000
     max_chunks_per_document: int = 2000
     max_documents_per_org: int = 50  # keeps a free-tier database from filling up
+
+    # ---- Security and reliability (Phase 10) ----
+    rate_limit_enabled: bool = True
+    # Set TRUST_PROXY_HEADERS=true behind a proxy that sets X-Forwarded-For (Render does), so rate limits
+    # count real client addresses. Leave false when the API is reachable directly.
+    trust_proxy_headers: bool = False
+    frontend_url: str = "http://localhost:5173"  # used in password-reset links
+    password_reset_minutes: int = 30
+    stuck_run_minutes: int = 10  # a run still "running" after this long is marked failed (retryable)
 
     # ---- Email (Phase 8) ----
     # "mock" (default) only records that an email WOULD have been sent. Real sending needs BOTH

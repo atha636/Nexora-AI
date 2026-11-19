@@ -8,6 +8,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import models  # noqa: F401  (registers tables on Base)
 from app.db.session import Base, get_db, get_session_factory
+from app.core.config import get_settings
+from app.core.ratelimit import limiter
 from app.main import app
 from app.services.embeddings import HashEmbedder, get_embedder
 
@@ -15,6 +17,18 @@ from app.services.embeddings import HashEmbedder, get_embedder
 # of in-memory SQLite, e.g.  postgresql+psycopg://postgres:pw@localhost:5432/nexora_test
 # WARNING: that database's tables are dropped and recreated for every test.
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+
+
+@pytest.fixture(autouse=True)
+def _rate_limits_off_by_default():
+    """The limiter is switched off in tests (they make many calls from one address); the rate-limit tests
+    switch it on themselves."""
+    settings = get_settings()
+    settings.rate_limit_enabled = False
+    limiter.reset()
+    yield
+    settings.rate_limit_enabled = True
+    limiter.reset()
 
 
 @pytest.fixture

@@ -5,6 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.agent.service import AgentFailure, ConversationNotFound, get_conversation, run_chat
+from app.core.ratelimit import rate_limit
 from app.api.deps import ROLE_RANK, AuthContext, get_auth_context
 from app.db.models import AgentRun, Conversation, Message, ToolExecution
 from app.db.session import get_db
@@ -28,7 +29,7 @@ def _not_found() -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(rate_limit("chat", 20))])
 def chat(
     body: ChatRequest,
     ctx: AuthContext = Depends(get_auth_context),

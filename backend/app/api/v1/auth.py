@@ -1,73 +1,73 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+import uuid
+from typing import Annotated, Literal
 
-from app.api.deps import AuthContext, get_auth_context, log_activity
-from app.core.security import create_access_token, hash_password, verify_password
-from app.db.models import ActivityLog, Organization, OrganizationMember, Profile
-from app.db.session import get_db
-from app.schemas.auth import (
-    LoginRequest,
-    MeResponse,
-    OrganizationOut,
-    SignupRequest,
-    TokenResponse,
-)
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+Password = Annotated[str, Field(min_length=8, max_length=72)]  # bcrypt ignores bytes past 72
 
 
-@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def signup(body: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    if db.scalar(select(Profile).where(Profile.email == body.email)):
-        raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+class _EmailMixin(BaseModel):
+    email: EmailStr
 
-    org = Organization(name=body.organization_name)
-    user = Profile(
-        email=body.email,
-        full_name=body.full_name,
-        password_hash=hash_password(body.password),
-    )
-    db.add_all([org, user])
-    db.flush()
-    db.add(OrganizationMember(organization_id=org.id, profile_id=user.id, role="owner"))
-    db.add(
-        ActivityLog(
-            organization_id=org.id,
-            actor_id=user.id,
-            entity_type="organization",
-            entity_id=org.id,
-            action="organization.created",
-        )
-    )
-    db.commit()
-    return TokenResponse(access_token=create_access_token(str(user.id)))
+    @field_validator("email")
+    @classmethod
+    def _lower(cls, v: str) -> str:
+        return v.lower()
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    user = db.scalar(select(Profile).where(Profile.email == body.email))
-    # Same message for "no such user" and "wrong password" on purpose.
-    if not verify_password(body.password, user.password_hash if user else None):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password")
-    return TokenResponse(access_token=create_access_token(str(user.id)))
+class SignupRequest(_EmailMixin):
+    password: Password
+    full_name: Name
+    organization_name: Name
 
 
-@router.post("/logout")
-def logout(ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> dict:
-    # Tokens are stateless, so the browser discards its copy; we just record the event.
-    log_activity(db, ctx, entity_type="auth", action="auth.logout")
-    db.commit()
-    return {"detail": "Logged out"}
+class LoginRequest(_EmailMixin):
+    password: str = Field(min_length=1, max_length=72)
 
 
-@router.get("/me", response_model=MeResponse)
-def me(ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> MeResponse:
-    org = db.get(Organization, ctx.organization_id)
-    return MeResponse(
-        id=ctx.user.id,
-        email=ctx.user.email,
-        full_name=ctx.user.full_name,
-        role=ctx.role,
-        organization=OrganizationOut(id=org.id, name=org.name),
-    )
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class OrganizationOut(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class MeResponse(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+    organization: OrganizationOut
+
+
+class TeamMemberCreate(_EmailMixin):
+    full_name: Name
+    password: Password
+    # "owner" can't be granted through the API.
+    role: Literal["admin", "manager", "employee"] = "employee"
+
+
+class TeamMemberOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+
+
+class ForgotPasswordRequest(_EmailMixin):
+    pass
+
+
+class ForgotPasswordResponse(BaseModel):
+    detail: str
+    # Only filled in development with the mock email provider, so the flow can be tried without an inbox.
+    dev_reset_link: str | None = None
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=2000)
+    new_password: Password

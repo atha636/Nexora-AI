@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agent.service import _org_name
+from app.core.ratelimit import rate_limit
 from app.api.deps import ROLE_RANK, AuthContext, get_auth_context, log_activity
 from app.db.models import EmailDraft, Lead
 from app.db.session import get_db
@@ -42,7 +43,7 @@ def meta(_: AuthContext = Depends(get_auth_context)) -> EmailMeta:
     return EmailMeta(tones=list(TONES), purposes=list(PURPOSES), provider=p.name, simulated=p.simulated)
 
 
-@router.post("/drafts", response_model=DraftOut, status_code=status.HTTP_201_CREATED)
+@router.post("/drafts", response_model=DraftOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("draft", 20))])
 def create(
     body: DraftCreate,
     ctx: AuthContext = Depends(get_auth_context),

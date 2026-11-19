@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -42,5 +43,42 @@ def decode_access_token(token: str) -> str | None:
         payload = jwt.decode(token, get_settings().secret_key, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
         return None
+    if payload.get("purpose"):  # a password-reset token is not a login token
+        return None
     sub = payload.get("sub")
     return sub if isinstance(sub, str) else None
+
+
+def _fingerprint(password_hash: str) -> str:
+    return hashlib.sha256(password_hash.encode()).hexdigest()[:16]
+
+
+def create_reset_token(user_id: str, password_hash: str) -> str:
+    """A short-lived token that can only be used to set a new password. It embeds a fingerprint of the
+    CURRENT password hash, so it stops working the moment the password changes (single use)."""
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "purpose": "password-reset",
+        "fp": _fingerprint(password_hash),
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.password_reset_minutes),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+
+
+def decode_reset_token(token: str) -> tuple[str, str] | None:
+    """Returns (user id, password fingerprint) or None. Login tokens are rejected here, and reset tokens
+    are rejected by decode_access_token, because the two have different purposes."""
+    try:
+        payload = jwt.decode(token, get_settings().secret_key, algorithms=[ALGORITHM])
+    except jwt.PyJWTError:
+        return None
+    if payload.get("purpose") != "password-reset" or not isinstance(payload.get("sub"), str):
+        return None
+    return payload["sub"], str(payload.get("fp", ""))
+
+
+def reset_token_matches(password_hash: str, fingerprint: str) -> bool:
+    return _fingerprint(password_hash) == fingerprint
