@@ -1,5 +1,9 @@
 import axios from 'axios'
 import type {
+  ActivityItem,
+  ObservabilityStats,
+  RunSummary,
+  Trace,
   BriefingItem,
   Execution,
   Workflow,
@@ -230,4 +234,14 @@ export const workflowsApi = {
   run: async (id: string) => (await api.post<Execution>(`/workflows/executions/${id}/run`, undefined, { timeout: 120_000 })).data,
   retry: async (id: string) => (await api.post<Execution>(`/workflows/executions/${id}/retry`, undefined, { timeout: 120_000 })).data,
   cancel: async (id: string) => (await api.post<Execution>(`/workflows/executions/${id}/cancel`)).data,
+}
+
+// ---------- observability (managers and above) ----------
+export const observabilityApi = {
+  stats: async (days = 7) => (await api.get<ObservabilityStats>('/observability/stats', { params: { days } })).data,
+  runs: async (status?: string) =>
+    (await api.get<{ items: RunSummary[]; total: number }>('/agent/runs', { params: { status, limit: 50 } })).data,
+  trace: async (id: string) => (await api.get<Trace>(`/agent/runs/${id}/trace`)).data,
+  activity: async (action?: string) =>
+    (await api.get<{ items: ActivityItem[]; total: number }>('/activity', { params: { action: action || undefined, limit: 50 } })).data,
 }

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  Activity,
   Menu,
   Settings,
   Sparkles,
@@ -18,6 +19,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { approvalsApi } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
+import { ROLE_RANK } from '../../lib/types'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,11 +30,13 @@ const nav = [
   { to: '/workflows', label: 'Workflows', icon: GitBranch },
   { to: '/emails', label: 'Emails', icon: Mail },
   { to: '/approvals', label: 'Approvals', icon: CheckSquare },
+  { to: '/observability', label: 'Observability', icon: Activity, minRole: 'manager' as const },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pending = useQuery({ queryKey: ['approvals', 'pending'], queryFn: () => approvalsApi.list('pending'), refetchInterval: 60_000 })
+  const { user } = useAuth()
   const pendingCount = pending.data?.pending ?? 0
   return (
     <nav aria-label="Main" className="flex h-full flex-col gap-1 p-4">
@@ -42,7 +46,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <span className="text-lg font-semibold tracking-tight">Nexora AI</span>
       </div>
-      {nav.map(({ to, label, icon: Icon }) => (
+      {nav.filter((n) => !n.minRole || (user && ROLE_RANK[user.role] >= ROLE_RANK[n.minRole])).map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}

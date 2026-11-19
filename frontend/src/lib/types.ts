@@ -468,3 +468,62 @@ export interface ChatResponse {
     duration_ms: number | null
   }
 }
+
+
+// ---------- observability ----------
+export interface RunSummary {
+  id: string
+  trace_id: string
+  status: 'running' | 'completed' | 'failed'
+  model: string
+  user_name: string | null
+  steps: number
+  tool_call_count: number
+  total_tokens: number | null
+  error_message: string | null
+  started_at: string
+  duration_ms: number | null
+}
+
+export interface TraceStep {
+  sequence: number
+  tool_name: string
+  status: 'ok' | 'error' | 'blocked'
+  arguments: Record<string, unknown> | string | null
+  summary: string | null
+  error_message: string | null
+  duration_ms: number
+  offset_ms: number
+}
+
+export interface Trace {
+  run: RunSummary
+  prompt_tokens: number | null
+  completion_tokens: number | null
+  finished_at: string | null
+  timeline: TraceStep[]
+}
+
+export interface ObservabilityStats {
+  days: number
+  runs: number
+  failed: number
+  failure_rate: number
+  avg_duration_ms: number | null
+  p95_duration_ms: number | null
+  total_tokens: number
+  tool_calls: number
+  tool_errors: number
+  blocked_tool_calls: number
+  by_tool: { tool: string; calls: number; errors: number; blocked: number; avg_ms: number }[]
+}
+
+export interface ActivityItem {
+  id: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  actor_name: string | null
+  created_at: string
+  details: Record<string, unknown> | null
+}

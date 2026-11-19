@@ -9,12 +9,15 @@ import Emails from './pages/Emails'
 import Knowledge from './pages/Knowledge'
 import Workflows from './pages/Workflows'
 import Leads from './pages/Leads'
+import ForgotPassword from './pages/ForgotPassword'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Signup from './pages/Signup'
 
 // Chart pages pull in Recharts (large), so they load only when visited.
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Analytics = lazy(() => import('./pages/Analytics'))
+const Observability = lazy(() => import('./pages/Observability'))
 const Assistant = lazy(() => import('./pages/Assistant')) // pulls in the markdown renderer and charts
 
 const placeholders = [
@@ -27,6 +30,8 @@ export default function App() {
     <Routes>
       <Route path="login" element={<Login />} />
       <Route path="signup" element={<Signup />} />
+      <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<Dashboard />} />
@@ -35,6 +40,7 @@ export default function App() {
           <Route path="knowledge" element={<Knowledge />} />
           <Route path="emails" element={<Emails />} />
           <Route path="workflows" element={<Workflows />} />
+          <Route path="observability" element={<Observability />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />

@@ -49,6 +49,11 @@ export default function Login() {
           error={errors.password?.message}
           {...register('password')}
         />
+        <div className="text-right text-sm">
+          <Link to="/forgot-password" className="text-slate-400 hover:text-electric">
+            Forgot password?
+          </Link>
+        </div>
         {serverError && (
           <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">
             {serverError}
