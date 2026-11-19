@@ -1,0 +1,11 @@
+[
+  {"id": "rq01", "question": "How many days do customers have to request a full refund?", "answerable": true, "expect_doc": "refund_policy.txt", "expect_phrase": "14 days", "answer_must_contain": ["14"]},
+  {"id": "rq02", "question": "How are refunds paid out after the refund window?", "answerable": true, "expect_doc": "refund_policy.txt", "expect_phrase": "store credit", "answer_must_contain": ["store credit"]},
+  {"id": "rq03", "question": "How much extra does express shipping cost?", "answerable": true, "expect_doc": "shipping_policy.txt", "expect_phrase": "250 rupees", "answer_must_contain": ["250"]},
+  {"id": "rq04", "question": "Above what order value is shipping free?", "answerable": true, "expect_doc": "shipping_policy.txt", "expect_phrase": "2000 rupees", "answer_must_contain": ["2000"]},
+  {"id": "rq05", "question": "How long is the hardware warranty?", "answerable": true, "expect_doc": "warranty.txt", "expect_phrase": "2 year", "answer_must_contain": ["2"]},
+  {"id": "rq06", "question": "Is water damage covered by the warranty?", "answerable": true, "expect_doc": "warranty.txt", "expect_phrase": "water damage are not covered", "answer_must_contain": ["not"]},
+  {"id": "rq07", "question": "What is the CEO's salary?", "answerable": false},
+  {"id": "rq08", "question": "Do you ship to Antarctica and how much does it cost?", "answerable": false},
+  {"id": "rq09", "question": "What is the company's policy on remote work?", "answerable": false}
+]
