@@ -1,353 +1,212 @@
-"""Workflow automation, orchestrated with LangGraph.
-
-A run is a small state machine:  check conditions -> run action 1 -> run action 2 -> ... -> done.
-Every step is committed to the `workflow_executions` row, which doubles as the checkpoint:
-  * `cursor` is the next action, so a failed run can be retried from the exact step that failed;
-  * a run that asked for human approval stops in `waiting_approval` and is finished later by the
-    decision (see `on_approval_finished`), never by itself;
-  * the definition is snapshotted into the run, so editing the workflow can't change a run in flight.
-
-Safety: the only actions are drafting an email, asking for approval, and updating a lead's status or
-priority. None of them can send an email. Sending still needs an approved ApprovalRequest.
-"""
-
-import logging
-import time
 import uuid
-from datetime import datetime, timezone
-from typing import TypedDict
+from typing import Literal
 
-from langgraph.graph import END, START, StateGraph
-from sqlalchemy import select, update
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import ROLE_RANK, AuthContext, log_activity
-from app.db.tenancy import bind_tenant
-from app.db.models import (
-    ApprovalRequest,
-    EmailDraft,
-    Lead,
-    Organization,
-    OrganizationMember,
-    Profile,
-    Workflow,
-    WorkflowExecution,
-    utcnow,
+from app.core.ratelimit import rate_limit
+from app.api.deps import AuthContext, get_auth_context, log_activity, require_role
+from app.db.models import Lead, Profile, Workflow, WorkflowExecution
+from app.db.session import get_db
+from app.schemas.workflow import (
+    ExecuteRequest,
+    ExecutionBrief,
+    ExecutionList,
+    ExecutionOut,
+    WorkflowCreate,
+    WorkflowOut,
+    WorkflowUpdate,
 )
-from app.services.approvals import ApprovalError, request_email_approval
-from app.services.email_drafts import create_draft
-from app.services.llm import LLMError, LLMNotConfigured
+from app.services import workflows as svc
+from app.services.llm import ChatLLM, LLMError, get_chat_llm
 
-log = logging.getLogger(__name__)
-
-STEP_ATTEMPTS = 2  # an AI call that fails is tried once more before the step fails
-MAX_RUNS = 5  # first run + retries; stops endless manual retrying of a broken run
-FINAL = ("completed", "failed", "cancelled", "skipped")
+router = APIRouter(prefix="/workflows", tags=["workflows"])
 
 
-class WorkflowError(Exception):
-    def __init__(self, status_code: int, message: str):
-        super().__init__(message)
-        self.status_code, self.message = status_code, message
+def _name(db: Session, user_id: uuid.UUID | None) -> str | None:
+    return db.scalar(select(Profile.full_name).where(Profile.id == user_id)) if user_id else None
 
 
-class StepError(Exception):
-    """An action failed. The message is safe to show to users."""
-
-
-# ---------------------------------------------------------------- conditions
-def _days_since(lead: Lead) -> int | None:
-    if lead.last_contacted_at is None:
-        return None
-    t = lead.last_contacted_at
-    if t.tzinfo is None:
-        t = t.replace(tzinfo=timezone.utc)
-    return max((datetime.now(timezone.utc) - t).days, 0)
-
-
-def check_conditions(lead: Lead, conditions: list[dict]) -> str | None:
-    """None if every condition holds, otherwise a short reason."""
-    for c in conditions:
-        f, op, v = c["field"], c["op"], c["value"]
-        if f in ("priority", "status"):
-            ok = (getattr(lead, f) == v) == (op == "eq")
-        elif f in ("city", "source"):
-            ok = ((getattr(lead, f) or "").casefold() == str(v).casefold()) == (op == "eq")
-        elif f == "days_since_contact":
-            d = _days_since(lead)
-            ok = (d is None or d >= v) if op == "gte" else (d is not None and d <= v)  # never contacted counts as "long ago"
-        else:  # has_email
-            ok = bool(lead.email) == v
-        if not ok:
-            return f"Condition not met: {f.replace('_', ' ')} {op} {v}"
-    return None
-
-
-# ---------------------------------------------------------------- creating runs
-def create_execution(db: Session, ctx: AuthContext, wf: Workflow, lead: Lead, source: str) -> WorkflowExecution:
-    ex = WorkflowExecution(
-        id=uuid.uuid4(),
-        organization_id=ctx.organization_id,
-        workflow_id=wf.id,
-        workflow_name=wf.name,
-        lead_id=lead.id,
-        lead_name=lead.name,
-        created_by=ctx.user.id,
-        trigger_source=source,
-        status="queued",
-        definition={"conditions": wf.conditions, "actions": wf.actions},
-        context={},
-        steps=[],
+def workflow_out(db: Session, w: Workflow) -> WorkflowOut:
+    count = db.scalar(select(func.count()).select_from(WorkflowExecution).where(WorkflowExecution.workflow_id == w.id)) or 0
+    last = db.scalar(select(WorkflowExecution).where(WorkflowExecution.workflow_id == w.id).order_by(WorkflowExecution.created_at.desc()).limit(1))
+    return WorkflowOut(
+        id=w.id, name=w.name, description=w.description, trigger_type=w.trigger_type, conditions=w.conditions,
+        actions=w.actions, is_active=w.is_active, created_by_name=_name(db, w.created_by), created_at=w.created_at,
+        updated_at=w.updated_at, run_count=count,
+        last_run=ExecutionBrief(id=last.id, status=last.status, lead_name=last.lead_name, created_at=last.created_at) if last else None,
     )
-    db.add(ex)
-    db.flush()
-    return ex
 
 
-def trigger_lead_created(db: Session, ctx: AuthContext, lead: Lead) -> list[uuid.UUID]:
-    """Queues a run for every active "lead created" workflow whose conditions match. Cheap: no AI
-    calls happen here. The caller commits, then starts the runs in the background."""
-    ids = []
-    flows = db.scalars(
-        select(Workflow).where(
-            Workflow.organization_id == ctx.organization_id, Workflow.is_active.is_(True), Workflow.trigger_type == "lead_created"
-        )
-    ).all()
-    for wf in flows:
-        if check_conditions(lead, wf.conditions) is None:
-            ids.append(create_execution(db, ctx, wf, lead, "lead_created").id)
-    return ids
+def execution_out(db: Session, ex: WorkflowExecution) -> ExecutionOut:
+    return ExecutionOut(
+        id=ex.id, workflow_id=ex.workflow_id, workflow_name=ex.workflow_name, lead_id=ex.lead_id, lead_name=ex.lead_name,
+        trigger_source=ex.trigger_source, status=ex.status, cursor=ex.cursor, total_steps=len(ex.definition.get("actions", [])),
+        attempts=ex.attempts, definition=ex.definition, steps=ex.steps, context=ex.context, error_message=ex.error_message, trace_id=ex.trace_id,
+        started_at=ex.started_at, finished_at=ex.finished_at, created_at=ex.created_at, created_by_name=_name(db, ex.created_by),
+    )
 
 
-# ---------------------------------------------------------------- the graph
-class RunState(TypedDict):
-    outcome: str  # continue | waiting | done | failed
+def _get(db: Session, ctx: AuthContext, workflow_id: uuid.UUID) -> Workflow:
+    w = db.scalar(select(Workflow).where(Workflow.id == workflow_id, Workflow.organization_id == ctx.organization_id))
+    if w is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workflow not found")
+    return w
 
 
-def _step(ex: WorkflowExecution, i: int, a: dict, status: str, summary: str, started: float, error: str | None = None, tries: int = 1):
-    ex.steps = [
-        *ex.steps,
-        {
-            "index": i, "type": a["type"], "status": status, "summary": summary, "error": error,
-            "duration_ms": int((time.perf_counter() - started) * 1000), "attempts": tries,
-            "at": utcnow().isoformat(),
-        },
-    ]
-
-
-def _lead_of(db: Session, ex: WorkflowExecution) -> Lead:
-    lead = db.scalar(select(Lead).where(Lead.id == ex.lead_id, Lead.organization_id == ex.organization_id)) if ex.lead_id else None
-    if lead is None:
-        raise StepError("The lead no longer exists.")
-    return lead
-
-
-def _act_draft(db, ctx, llm, ex, a) -> tuple[str, bool]:
-    lead = _lead_of(db, ex)
-    if not lead.email:
-        raise StepError("The lead has no email address.")
-    org = db.scalar(select(Organization.name).where(Organization.id == ex.organization_id)) or "our company"
-    last: LLMError | None = None
-    for attempt in range(1, STEP_ATTEMPTS + 1):
-        try:
-            d = create_draft(db, ctx, llm, lead, org_name=org, tone=a["tone"], purpose=a["purpose"], instructions=a.get("instructions"), via="workflow")
-            ex.context = {**ex.context, "draft_id": str(d.id)}
-            return f'Wrote a {a["tone"]} draft: "{d.subject}"', False
-        except LLMNotConfigured as e:
-            raise StepError(str(e)) from None
-        except LLMError as e:
-            db.rollback()
-            last = e
-    raise StepError(str(last))
-
-
-def _act_approval(db, ctx, llm, ex, a) -> tuple[str, bool]:
-    draft_id = ex.context.get("draft_id")
-    draft = db.scalar(select(EmailDraft).where(EmailDraft.id == uuid.UUID(draft_id), EmailDraft.organization_id == ex.organization_id)) if draft_id else None
-    if draft is None:
-        raise StepError("There is no draft to send for approval.")
+def _wrap(fn, *args, **kw):
     try:
-        ap = request_email_approval(db, ctx, draft, via="workflow")
-    except ApprovalError as e:
-        raise StepError(e.message) from None
-    ex.context = {**ex.context, "approval_id": str(ap.id)}
-    return "Asked a manager to approve sending the email", True
+        return fn(*args, **kw)
+    except svc.WorkflowError as e:
+        raise HTTPException(e.status_code, e.message) from None
 
 
-def _act_update(db, ctx, llm, ex, a) -> tuple[str, bool]:
-    lead = _lead_of(db, ex)
-    changed = {}
-    for f in ("status", "priority"):
-        if a.get(f) and getattr(lead, f) != a[f]:
-            changed[f] = [getattr(lead, f), a[f]]
-            setattr(lead, f, a[f])
-    log_activity(db, ctx, entity_type="lead", entity_id=lead.id, action="lead.updated", details={"changed": changed, "via": "workflow"})
-    return ("Updated " + ", ".join(f"{k} to {v[1]}" for k, v in changed.items())) if changed else "Nothing to change", False
+# ---------------------------------------------------------------- runs (declared before /{id})
+@router.get("/executions", response_model=ExecutionList)
+def list_executions(
+    status_filter: str | None = Query(None, alias="status"),
+    workflow_id: uuid.UUID | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+) -> ExecutionList:
+    q = select(WorkflowExecution).where(WorkflowExecution.organization_id == ctx.organization_id)
+    if status_filter:
+        q = q.where(WorkflowExecution.status == status_filter)
+    if workflow_id:
+        q = q.where(WorkflowExecution.workflow_id == workflow_id)
+    total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
+    rows = db.scalars(q.order_by(WorkflowExecution.created_at.desc(), WorkflowExecution.id).offset((page - 1) * page_size).limit(page_size))
+    return ExecutionList(items=[execution_out(db, e) for e in rows], total=total)
 
 
-ACTIONS = {"draft_email": _act_draft, "request_approval": _act_approval, "update_lead": _act_update}
+@router.get("/executions/{execution_id}", response_model=ExecutionOut)
+def read_execution(execution_id: uuid.UUID, ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> ExecutionOut:
+    return execution_out(db, _wrap(svc.get_execution, db, ctx, execution_id))
 
 
-def build_graph(db: Session, ctx: AuthContext, llm, execution_id: uuid.UUID):
-    def load() -> WorkflowExecution:
-        return db.get(WorkflowExecution, execution_id)
-
-    def finish(ex: WorkflowExecution, status: str, error: str | None = None) -> None:
-        ex.status, ex.error_message, ex.finished_at = status, error, utcnow()
-        log_activity(db, ctx, entity_type="workflow_execution", entity_id=ex.id, action=f"workflow.{status}", details={"workflow": ex.workflow_name})
-        db.commit()
-
-    def check(state: RunState) -> RunState:
-        ex = load()
-        if ex.cursor > 0 or ex.steps:  # resuming a retry: the conditions already passed
-            return {"outcome": "continue"}
-        try:
-            reason = check_conditions(_lead_of(db, ex), ex.definition["conditions"])
-        except StepError as e:
-            finish(ex, "failed", str(e))
-            return {"outcome": "failed"}
-        if reason:
-            finish(ex, "skipped", reason)
-            return {"outcome": "done"}
-        return {"outcome": "continue"}
-
-    def step(state: RunState) -> RunState:
-        ex = load()
-        actions = ex.definition["actions"]
-        if ex.cursor >= len(actions):
-            finish(ex, "completed")
-            return {"outcome": "done"}
-        a, i, started = actions[ex.cursor], ex.cursor, time.perf_counter()
-        try:
-            summary, waiting = ACTIONS[a["type"]](db, ctx, llm, ex, a)
-        except StepError as e:
-            db.rollback()
-            ex = load()
-            _step(ex, i, a, "error", "Failed", started, error=str(e))
-            finish(ex, "failed", str(e))
-            return {"outcome": "failed"}
-        except Exception as e:  # noqa: BLE001 - a bug in one step must not leave the run "running" forever
-            log.error("Workflow %s step %d crashed: %s", ex.trace_id, i, type(e).__name__)
-            db.rollback()
-            ex = load()
-            _step(ex, i, a, "error", "Failed", started, error="Unexpected error while running this step.")
-            finish(ex, "failed", "Unexpected error while running this step.")
-            return {"outcome": "failed"}
-        ex.cursor = i + 1
-        if waiting:
-            _step(ex, i, a, "waiting", summary, started)
-            ex.status = "waiting_approval"
-            log_activity(db, ctx, entity_type="workflow_execution", entity_id=ex.id, action="workflow.waiting_approval", details={"workflow": ex.workflow_name})
-            db.commit()
-            return {"outcome": "waiting"}
-        _step(ex, i, a, "ok", summary, started)
-        db.commit()
-        return {"outcome": "continue"}
-
-    g = StateGraph(RunState)
-    g.add_node("check", check)
-    g.add_node("step", step)
-    g.add_edge(START, "check")
-    g.add_conditional_edges("check", lambda s: "step" if s["outcome"] == "continue" else END, {"step": "step", END: END})
-    g.add_conditional_edges("step", lambda s: "step" if s["outcome"] == "continue" else END, {"step": "step", END: END})
-    return g.compile()
+@router.post("/executions/{execution_id}/run", response_model=ExecutionOut, dependencies=[Depends(rate_limit("wf_start", 10))])
+def run_queued(
+    execution_id: uuid.UUID,
+    ctx: AuthContext = Depends(require_role("manager")),
+    db: Session = Depends(get_db),
+    llm: ChatLLM = Depends(get_chat_llm),
+) -> ExecutionOut:
+    """Starts a run that is waiting in the queue (for example one triggered by a lead the AI assistant created)."""
+    return execution_out(db, _wrap(svc.run_execution, db, ctx, llm, execution_id))
 
 
-def get_execution(db: Session, ctx: AuthContext, execution_id: uuid.UUID) -> WorkflowExecution:
-    ex = db.scalar(select(WorkflowExecution).where(WorkflowExecution.id == execution_id, WorkflowExecution.organization_id == ctx.organization_id))
-    if ex is None:
-        raise WorkflowError(404, "Run not found")
-    return ex
+@router.post("/executions/{execution_id}/retry", response_model=ExecutionOut, dependencies=[Depends(rate_limit("wf_retry", 10))])
+def retry(
+    execution_id: uuid.UUID,
+    ctx: AuthContext = Depends(require_role("manager")),
+    db: Session = Depends(get_db),
+    llm: ChatLLM = Depends(get_chat_llm),
+) -> ExecutionOut:
+    """Re-runs a failed run from the step that failed (earlier steps are not repeated)."""
+    return execution_out(db, _wrap(svc.run_execution, db, ctx, llm, execution_id, retry=True))
 
 
-def _claim(db: Session, ex: WorkflowExecution, allowed: tuple[str, ...]) -> None:
-    """Moves the run to `running`, only if it is in an allowed state, so two requests can't both run it."""
-    res = db.execute(
-        update(WorkflowExecution)
-        .where(WorkflowExecution.id == ex.id, WorkflowExecution.status.in_(allowed))
-        .values(status="running", started_at=ex.started_at or utcnow(), attempts=ex.attempts + 1, finished_at=None, error_message=None)
+@router.post("/executions/{execution_id}/cancel", response_model=ExecutionOut)
+def cancel(execution_id: uuid.UUID, ctx: AuthContext = Depends(require_role("manager")), db: Session = Depends(get_db)) -> ExecutionOut:
+    return execution_out(db, _wrap(svc.cancel_execution, db, ctx, execution_id))
+
+
+# ---------------------------------------------------------------- definitions
+@router.get("", response_model=list[WorkflowOut])
+def list_workflows(ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> list[WorkflowOut]:
+    rows = db.scalars(select(Workflow).where(Workflow.organization_id == ctx.organization_id).order_by(Workflow.created_at.desc(), Workflow.id))
+    return [workflow_out(db, w) for w in rows]
+
+
+@router.post("", response_model=WorkflowOut, status_code=status.HTTP_201_CREATED)
+def create(body: WorkflowCreate, ctx: AuthContext = Depends(require_role("admin")), db: Session = Depends(get_db)) -> WorkflowOut:
+    w = Workflow(
+        organization_id=ctx.organization_id, created_by=ctx.user.id, name=body.name, description=body.description,
+        trigger_type=body.trigger_type, is_active=body.is_active,
+        conditions=[c.model_dump() for c in body.conditions], actions=[a.model_dump(exclude_none=True) for a in body.actions],
     )
-    if res.rowcount != 1:
-        db.rollback()
-        raise WorkflowError(409, "This run can't be started in its current state.")
+    db.add(w)
+    db.flush()
+    log_activity(db, ctx, entity_type="workflow", entity_id=w.id, action="workflow.created", details={"name": w.name})
     db.commit()
-    db.expire_all()
+    db.refresh(w)
+    return workflow_out(db, w)
 
 
-def run_execution(db: Session, ctx: AuthContext, llm, execution_id: uuid.UUID, *, retry: bool = False) -> WorkflowExecution:
-    ex = get_execution(db, ctx, execution_id)
-    if retry:
-        if ex.attempts >= MAX_RUNS:
-            raise WorkflowError(409, f"This run has already been tried {MAX_RUNS} times.")
-        _claim(db, ex, ("failed",))
-    else:
-        _claim(db, ex, ("queued",))
-    build_graph(db, ctx, llm, execution_id).invoke({"outcome": "continue"}, config={"recursion_limit": 30})
-    db.expire_all()
-    return db.get(WorkflowExecution, execution_id)
+@router.get("/{workflow_id}", response_model=WorkflowOut)
+def read(workflow_id: uuid.UUID, ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> WorkflowOut:
+    return workflow_out(db, _get(db, ctx, workflow_id))
 
 
-def run_in_background(session_factory, llm, execution_id: uuid.UUID, user_id: uuid.UUID, org_id: uuid.UUID) -> None:
-    """Runs a queued execution after the HTTP response has been sent."""
-    with session_factory() as db:
-        bind_tenant(db, org_id)
-        user = db.get(Profile, user_id)
-        member = db.scalar(select(OrganizationMember).where(OrganizationMember.profile_id == user_id, OrganizationMember.organization_id == org_id))
-        if user is None or member is None:
-            return
-        try:
-            run_execution(db, AuthContext(user=user, organization_id=org_id, role=member.role), llm, execution_id)
-        except WorkflowError:
-            pass  # already started elsewhere
-        except Exception as e:  # noqa: BLE001
-            log.error("Background workflow run failed: %s", type(e).__name__)
+@router.patch("/{workflow_id}", response_model=WorkflowOut)
+def update(workflow_id: uuid.UUID, body: WorkflowUpdate, ctx: AuthContext = Depends(require_role("admin")), db: Session = Depends(get_db)) -> WorkflowOut:
+    w = _get(db, ctx, workflow_id)
+    data = body.model_dump(exclude_unset=True, exclude_none=False)
+    if not data:
+        raise HTTPException(422, "Nothing to update")
+    if "conditions" in data and body.conditions is not None:
+        w.conditions = [c.model_dump() for c in body.conditions]
+    if "actions" in data and body.actions is not None:
+        w.actions = [a.model_dump(exclude_none=True) for a in body.actions]
+    for f in ("name", "description", "trigger_type", "is_active"):
+        if f in data and (data[f] is not None or f == "description"):
+            setattr(w, f, data[f])
+    log_activity(db, ctx, entity_type="workflow", entity_id=w.id, action="workflow.updated", details={"fields": sorted(data)})
+    db.commit()
+    db.refresh(w)
+    return workflow_out(db, w)
 
 
-# ---------------------------------------------------------------- cancel / approval hooks
-def cancel_execution(db: Session, ctx: AuthContext, execution_id: uuid.UUID) -> WorkflowExecution:
-    ex = get_execution(db, ctx, execution_id)
-    if ex.status not in ("queued", "waiting_approval", "failed"):
-        raise WorkflowError(409, f"A run that is {ex.status.replace('_', ' ')} can't be cancelled.")
-    approval_id = ex.context.get("approval_id") if ex.status == "waiting_approval" else None
-    if approval_id:  # withdraw the pending request so nothing can be sent afterwards
-        res = db.execute(
-            update(ApprovalRequest)
-            .where(ApprovalRequest.id == uuid.UUID(approval_id), ApprovalRequest.status == "pending")
-            .values(status="cancelled", decided_by=ctx.user.id, decided_at=utcnow(), decision_note="Workflow run cancelled")
+@router.delete("/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete(workflow_id: uuid.UUID, ctx: AuthContext = Depends(require_role("admin")), db: Session = Depends(get_db)) -> Response:
+    w = _get(db, ctx, workflow_id)
+    busy = db.scalar(
+        select(func.count()).select_from(WorkflowExecution).where(
+            WorkflowExecution.workflow_id == w.id, WorkflowExecution.status.in_(("queued", "running", "waiting_approval"))
         )
-        if res.rowcount != 1:  # someone decided it a moment ago: let that decision finish the run
-            db.rollback()
-            raise WorkflowError(409, "The approval was just decided. Refresh to see the result.")
-        draft = db.scalar(select(EmailDraft).where(EmailDraft.approval_id == uuid.UUID(approval_id)))
-        if draft and draft.status == "pending_approval":
-            draft.status = "draft"
-    ex.status, ex.finished_at, ex.error_message = "cancelled", utcnow(), "Cancelled by a person."
-    log_activity(db, ctx, entity_type="workflow_execution", entity_id=ex.id, action="workflow.cancelled", details={"workflow": ex.workflow_name})
+    )
+    if busy:
+        raise HTTPException(409, "This workflow has runs in progress. Cancel them first, or pause the workflow instead.")
+    log_activity(db, ctx, entity_type="workflow", entity_id=w.id, action="workflow.deleted", details={"name": w.name})
+    db.delete(w)  # run history is kept (its workflow_id becomes empty)
     db.commit()
-    db.refresh(ex)
-    return ex
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def on_approval_finished(db: Session, approval: ApprovalRequest) -> None:
-    """Called by the approval service when a request reaches a final state. Finishes the run that
-    was waiting for it. Does not commit: the caller does."""
-    if approval.status not in ("executed", "failed", "rejected", "cancelled"):
-        return
-    waiting = db.scalars(
-        select(WorkflowExecution).where(WorkflowExecution.organization_id == approval.organization_id, WorkflowExecution.status == "waiting_approval")
-    ).all()
-    for ex in waiting:
-        if ex.context.get("approval_id") != str(approval.id):
-            continue
-        steps = [dict(s) for s in ex.steps]
-        outcome = {
-            "executed": ("completed", "ok", "Approved. The email was sent." if not (approval.result or {}).get("simulated") else "Approved. Email send simulated.", None),
-            "failed": ("failed", "error", "Approved, but sending failed", approval.error_message or "Sending failed."),
-            "rejected": ("cancelled", "error", "Rejected by a manager", "The approval was rejected."),
-            "cancelled": ("cancelled", "error", "Approval request cancelled", "The approval request was cancelled."),
-        }[approval.status]
-        status, step_status, summary, error = outcome
-        if steps:
-            steps[-1] = {**steps[-1], "status": step_status, "summary": summary, "error": error}
-        ex.steps = steps
-        ex.status, ex.error_message, ex.finished_at = status, error, utcnow()
+@router.post("/{workflow_id}/execute", response_model=ExecutionOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("wf_run", 10))])
+def execute(
+    workflow_id: uuid.UUID,
+    body: ExecuteRequest,
+    ctx: AuthContext = Depends(require_role("manager")),
+    db: Session = Depends(get_db),
+    llm: ChatLLM = Depends(get_chat_llm),
+) -> ExecutionOut:
+    """Runs the workflow now on one lead and waits for it to finish (or to reach an approval)."""
+    w = _get(db, ctx, workflow_id)
+    if not w.is_active:
+        raise HTTPException(409, "This workflow is paused. Resume it to run it.")
+    lead = db.scalar(select(Lead).where(Lead.id == body.lead_id, Lead.organization_id == ctx.organization_id))
+    if lead is None:
+        raise HTTPException(404, "Lead not found")
+    ex = svc.create_execution(db, ctx, w, lead, "manual")
+    db.commit()
+    try:
+        out = svc.run_execution(db, ctx, llm, ex.id)
+    except svc.WorkflowError as e:
+        raise HTTPException(e.status_code, e.message) from None
+    return execution_out(db, out)
+
+
+@router.get("/{workflow_id}/executions", response_model=ExecutionList)
+def workflow_executions(
+    workflow_id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+) -> ExecutionList:
+    _get(db, ctx, workflow_id)
+    return list_executions(None, workflow_id, page, page_size, ctx, db)
