@@ -18,7 +18,7 @@ const components: Components = {
             e.preventDefault()
             document.getElementById(href.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' })
           }}
-          className="mx-0.5 rounded bg-brand/25 px-1 align-baseline text-xs font-semibold text-violet-200 no-underline hover:bg-brand/40"
+          className="mx-0.5 rounded bg-brand/25 px-1 align-baseline text-xs font-semibold text-brand no-underline hover:bg-brand/40"
         >
           {children}
         </a>
@@ -49,7 +49,7 @@ const components: Components = {
     return isBlock ? (
       <code className="font-mono text-slate-200">{children}</code>
     ) : (
-      <code className="rounded bg-navy-950 px-1.5 py-0.5 font-mono text-[0.85em] text-violet-200">{children}</code>
+      <code className="rounded bg-navy-950 px-1.5 py-0.5 font-mono text-[0.85em] text-brand">{children}</code>
     )
   },
   table: ({ children }: { children?: ReactNode }) => (

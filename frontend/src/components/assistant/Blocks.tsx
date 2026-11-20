@@ -262,7 +262,7 @@ function SourcesBlock({ sources, messageId }: { sources: SourceItem[]; messageId
         {sorted.map((s) => (
           <li key={s.chunk_id} id={`src-${messageId}-${s.number}`} className={`scroll-mt-24 rounded-xl border bg-navy-900/60 p-3 ${s.cited ? 'border-brand/40' : 'border-line opacity-80'}`}>
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="grid h-5 w-5 place-items-center rounded bg-brand/25 font-semibold text-violet-200">{s.number}</span>
+              <span className="grid h-5 w-5 place-items-center rounded bg-brand/25 font-semibold text-brand">{s.number}</span>
               <FileText className="h-3.5 w-3.5 text-slate-500" aria-hidden />
               <span className="font-medium text-slate-200">{s.filename}</span>
               <span className="text-slate-400">· {s.page_number !== null ? `Page ${s.page_number}` : `Section ${s.chunk_index + 1}`}</span>
