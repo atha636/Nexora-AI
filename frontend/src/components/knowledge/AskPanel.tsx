@@ -32,7 +32,7 @@ function AnswerText({ text }: { text: string }) {
             key={i}
             href={`#source-${m[1]}`}
             aria-label={`Source ${m[1]}`}
-            className="mx-0.5 rounded bg-brand/25 px-1 align-baseline text-xs font-semibold text-violet-200 hover:bg-brand/40"
+            className="mx-0.5 rounded bg-brand/25 px-1 align-baseline text-xs font-semibold text-brand hover:bg-brand/40"
           >
             {m[1]}
           </a>
@@ -130,7 +130,7 @@ export default function AskPanel({ disabled }: { disabled: boolean }) {
                 {data.citations.map((c) => (
                   <li key={c.chunk_id} id={`source-${c.number}`} className="scroll-mt-24 rounded-xl border border-line bg-navy-900/60 p-3">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="grid h-5 w-5 place-items-center rounded bg-brand/25 font-semibold text-violet-200">{c.number}</span>
+                      <span className="grid h-5 w-5 place-items-center rounded bg-brand/25 font-semibold text-brand">{c.number}</span>
                       <FileText className="h-3.5 w-3.5 text-slate-500" aria-hidden />
                       <span className="font-medium text-slate-200">{c.filename}</span>
                       <span className="text-slate-400">· {where(c)}</span>

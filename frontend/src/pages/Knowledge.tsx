@@ -323,7 +323,7 @@ export default function Knowledge() {
                       {h.page_number !== null ? `Page ${h.page_number}` : `Section ${h.chunk_index + 1}`}
                     </span>
                   </span>
-                  <span className="rounded-full bg-brand/20 px-2 py-0.5 text-violet-300">{Math.round(h.score * 100)}% match</span>
+                  <span className="rounded-full bg-brand/20 px-2 py-0.5 text-brand">{Math.round(h.score * 100)}% match</span>
                 </div>
                 {/* Document text is untrusted: rendered as plain text, never as HTML. */}
                 <p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{h.content}</p>

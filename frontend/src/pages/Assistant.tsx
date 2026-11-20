@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, ArrowUp, Loader2, MessagesSquare, RotateCcw, Sparkles, X } from 'lucide-react'
+import { AlertCircle, ArrowUp, Loader2, MessagesSquare, RotateCcw, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { ActivityBlock, ResultBlocks } from '../components/assistant/Blocks'
 import ConversationSidebar from '../components/assistant/ConversationSidebar'
@@ -22,7 +22,7 @@ const MAX_LENGTH = 2000
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gradient-to-br from-brand to-electric px-4 py-2.5 text-sm text-white">
+      <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md border border-line bg-navy-700 px-4 py-2.5 text-sm text-slate-100">
         {text}
       </p>
     </div>
@@ -31,8 +31,8 @@ function UserBubble({ text }: { text: string }) {
 
 function AssistantAvatar() {
   return (
-    <div aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand to-electric">
-      <Sparkles className="h-4 w-4 text-white" />
+    <div aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand text-black">
+      <span className="text-sm font-bold leading-none">N</span>
     </div>
   )
 }
@@ -217,8 +217,8 @@ export default function Assistant() {
 
           {showEmpty && !(activeId && (detail.isLoading || detail.isError)) && (
             <div className="grid place-items-center gap-4 py-8 text-center">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand to-electric">
-                <Sparkles className="h-7 w-7 text-white" aria-hidden />
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand text-black">
+                <span className="text-2xl font-bold leading-none" aria-hidden>N</span>
               </span>
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">How can I help, {name}?</h2>
@@ -289,7 +289,7 @@ export default function Assistant() {
               type="submit"
               aria-label="Send message"
               disabled={!draft.trim() || busy}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand to-electric text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand text-black transition hover:bg-electric disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ArrowUp className="h-4 w-4" aria-hidden />}
             </button>

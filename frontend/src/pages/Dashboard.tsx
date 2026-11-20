@@ -32,8 +32,8 @@ const kpiCards: { label: string; icon: LucideIcon; value: (k: Kpis) => string; h
     value: (k) => `${k.conversion_rate}%`,
     hint: (k) => `${k.won_leads} of ${k.total_leads} leads`,
   },
-  { label: 'Active workflows', icon: GitBranch, value: (k) => formatNumber(k.active_workflows), hint: () => 'Coming in Phase 9' },
-  { label: 'Pending approvals', icon: CheckSquare, value: (k) => formatNumber(k.pending_approvals), hint: () => 'Coming in Phase 8' },
+  { label: 'Active workflows', icon: GitBranch, value: (k) => formatNumber(k.active_workflows), hint: () => 'Enabled automations' },
+  { label: 'Pending approvals', icon: CheckSquare, value: (k) => formatNumber(k.pending_approvals), hint: () => 'Waiting for a decision' },
   { label: 'Documents indexed', icon: FileText, value: (k) => formatNumber(k.documents_indexed), hint: () => 'Ready for search' },
 ]
 
