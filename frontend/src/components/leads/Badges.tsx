@@ -4,7 +4,7 @@ import type { LeadPriority, LeadStatus } from '../../lib/types'
 const statusStyle: Record<LeadStatus, string> = {
   new: 'bg-electric/15 text-electric',
   contacted: 'bg-amber-400/15 text-amber-300',
-  qualified: 'bg-brand/20 text-violet-300',
+  qualified: 'bg-brand/20 text-brand',
   won: 'bg-emerald-400/15 text-emerald-300',
   lost: 'bg-slate-500/20 text-slate-400',
 }

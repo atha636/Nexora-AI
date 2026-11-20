@@ -3,8 +3,8 @@ import { ChartBox, SERIES } from '../charts/Charts'
 import { formatCurrency, formatCurrencyCompact, formatNumber, monthLabel } from '../../lib/format'
 import type { AnalyticsResult } from '../../lib/types'
 
-const GRID = '#232f52'
-const MUTED = '#8f9bbd'
+const GRID = '#232723'
+const MUTED = '#858b85'
 
 export function formatValue(unit: AnalyticsResult['unit'], v: number): string {
   if (unit === 'currency') return formatCurrency(v)
@@ -23,7 +23,7 @@ function Chart({ result }: { result: AnalyticsResult }) {
     <Tooltip
       cursor={{ fill: 'rgba(255,255,255,0.04)' }}
       formatter={(v) => formatValue(result.unit, Number(v))}
-      contentStyle={{ background: '#0b1226', border: '1px solid #232f52', borderRadius: 8, fontSize: 12 }}
+      contentStyle={{ background: '#0f110f', border: '1px solid #232723', borderRadius: 8, fontSize: 12 }}
     />
   )
   return (

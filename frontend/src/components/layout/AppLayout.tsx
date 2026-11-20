@@ -10,9 +10,9 @@ import {
   Activity,
   Menu,
   Settings,
-  Sparkles,
   Users,
   X,
+  MessageSquare,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -23,7 +23,7 @@ import { ROLE_RANK } from '../../lib/types'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/assistant', label: 'AI Assistant', icon: Sparkles },
+  { to: '/assistant', label: 'AI Assistant', icon: MessageSquare },
   { to: '/leads', label: 'CRM', icon: Users },
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
@@ -41,8 +41,8 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="Main" className="flex h-full flex-col gap-1 p-4">
       <div className="mb-6 flex items-center gap-2 px-2">
-        <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand to-electric">
-          <Sparkles className="h-5 w-5 text-white" aria-hidden />
+        <div className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-black">
+          <span className="text-base font-bold leading-none" aria-hidden>N</span>
         </div>
         <span className="text-lg font-semibold tracking-tight">Nexora AI</span>
       </div>
@@ -127,7 +127,7 @@ export default function AppLayout() {
             </div>
             <div
               aria-hidden
-              className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-brand to-electric text-xs font-semibold"
+              className="grid h-8 w-8 place-items-center rounded-full bg-brand text-black text-xs font-semibold"
             >
               {user?.full_name.charAt(0).toUpperCase()}
             </div>
