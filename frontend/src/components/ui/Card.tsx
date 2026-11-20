@@ -12,7 +12,7 @@ export function Card({
   return (
     <div
       role={role}
-      className={`rounded-2xl border border-line bg-navy-800/70 shadow-lg shadow-black/20 ${className}`}
+      className={`rounded-xl border border-line bg-navy-900 ${className}`}
     >
       {children}
     </div>
