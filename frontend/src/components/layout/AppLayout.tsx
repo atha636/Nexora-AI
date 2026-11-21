@@ -23,7 +23,7 @@ import { useAuth } from '../../lib/auth'
 import { ROLE_RANK } from '../../lib/types'
 
 const nav = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/assistant', label: 'AI Assistant', icon: MessageSquare },
   { to: '/leads', label: 'CRM', icon: Users },
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
@@ -49,7 +49,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <NavLink
           key={to}
           to={to}
-          end={to === '/'}
+          end={to === '/dashboard'}
           onClick={onNavigate}
           className={({ isActive }) =>
             `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${

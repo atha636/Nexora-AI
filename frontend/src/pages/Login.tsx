@@ -18,7 +18,7 @@ type Values = z.infer<typeof schema>
 export default function Login() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
-  const from = (useLocation().state as { from?: string } | null)?.from ?? '/'
+  const from = (useLocation().state as { from?: string } | null)?.from ?? '/dashboard'
   const [serverError, setServerError] = useState<string | null>(null)
   const {
     register,

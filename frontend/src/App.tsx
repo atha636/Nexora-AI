@@ -10,6 +10,7 @@ import Knowledge from './pages/Knowledge'
 import Workflows from './pages/Workflows'
 import Leads from './pages/Leads'
 import ForgotPassword from './pages/ForgotPassword'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Signup from './pages/Signup'
@@ -28,13 +29,14 @@ export default function App() {
   return (
     <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading…</div>}>
     <Routes>
+      <Route index element={<Landing />} />
       <Route path="login" element={<Login />} />
       <Route path="signup" element={<Signup />} />
       <Route path="forgot-password" element={<ForgotPassword />} />
       <Route path="reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="assistant" element={<Assistant />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="knowledge" element={<Knowledge />} />

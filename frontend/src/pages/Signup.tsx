@@ -27,13 +27,13 @@ export default function Signup() {
     formState: { errors, isSubmitting },
   } = useForm<Values>({ resolver: zodResolver(schema) })
 
-  if (user) return <Navigate to="/" replace />
+  if (user) return <Navigate to="/dashboard" replace />
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null)
     try {
       await signup(values)
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (e) {
       setServerError(errorMessage(e, 'Could not create your account.'))
     }

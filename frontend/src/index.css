@@ -57,3 +57,148 @@ input[type="radio"] {
 html {
   color-scheme: dark;
 }
+
+/* ---------- landing page motion ---------- */
+html {
+  scroll-behavior: smooth;
+}
+
+.nx-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.8s ease,
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+.nx-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes nx-dash {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+@keyframes nx-node {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+@keyframes nx-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+@keyframes nx-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes nx-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes nx-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes nx-sweep {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(220%);
+  }
+}
+
+.nx-edge {
+  stroke-dasharray: 4 8;
+  animation: nx-dash 3s linear infinite;
+}
+.nx-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nx-node 4s ease-in-out infinite;
+}
+.nx-float {
+  animation: nx-float 7s ease-in-out infinite;
+}
+.nx-marquee {
+  animation: nx-marquee 38s linear infinite;
+}
+.nx-caret {
+  animation: nx-blink 1s steps(1) infinite;
+}
+.nx-pop {
+  animation: nx-pop 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* cards whose border glows under the cursor */
+.nx-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  background: var(--color-navy-900);
+  transition: border-color 0.3s;
+}
+.nx-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(47, 203, 139, 0.12), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.nx-card:hover {
+  border-color: rgba(47, 203, 139, 0.45);
+}
+.nx-card:hover::before {
+  opacity: 1;
+}
+
+.nx-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .nx-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .nx-edge,
+  .nx-node,
+  .nx-float,
+  .nx-marquee,
+  .nx-caret,
+  .nx-pop {
+    animation: none;
+  }
+}
