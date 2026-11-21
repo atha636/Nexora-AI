@@ -1,3 +1,4 @@
+import { Logo } from '../ui/Logo'
 import {
   BarChart3,
   Bell,
@@ -41,9 +42,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="Main" className="flex h-full flex-col gap-1 p-4">
       <div className="mb-6 flex items-center gap-2 px-2">
-        <div className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-black">
-          <span className="text-base font-bold leading-none" aria-hidden>N</span>
-        </div>
+        <Logo size={36} />
         <span className="text-lg font-semibold tracking-tight">Nexora AI</span>
       </div>
       {nav.filter((n) => !n.minRole || (user && ROLE_RANK[user.role] >= ROLE_RANK[n.minRole])).map(({ to, label, icon: Icon }) => (

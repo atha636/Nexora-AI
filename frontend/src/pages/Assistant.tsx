@@ -1,3 +1,4 @@
+import { Logo } from '../components/ui/Logo'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, ArrowUp, Loader2, MessagesSquare, RotateCcw, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
@@ -31,9 +32,7 @@ function UserBubble({ text }: { text: string }) {
 
 function AssistantAvatar() {
   return (
-    <div aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand text-black">
-      <span className="text-sm font-bold leading-none">N</span>
-    </div>
+    <span aria-hidden><Logo size={32} /></span>
   )
 }
 
@@ -217,9 +216,7 @@ export default function Assistant() {
 
           {showEmpty && !(activeId && (detail.isLoading || detail.isError)) && (
             <div className="grid place-items-center gap-4 py-8 text-center">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand text-black">
-                <span className="text-2xl font-bold leading-none" aria-hidden>N</span>
-              </span>
+              <Logo size={56} />
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">How can I help, {name}?</h2>
                 <p className="mt-1 text-sm text-slate-400">Ask in plain English. I can look things up and make simple CRM changes for you.</p>
