@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import agent, approvals, auth, dashboard, documents, emails, health, insights, leads, observability, sales, team, workflows
+from app.api.v1 import agent, approvals, auth, dashboard, documents, emails, health, insights, leads, notifications, observability, sales, team, workflows
 from app.core.config import get_settings
 from app.core.logging_safety import install_redaction
 from app.db.session import get_session_factory
@@ -107,5 +107,6 @@ for r in (
     approvals.router,
     workflows.router,
     observability.router,
+    notifications.router,
 ):
     app.include_router(r, prefix="/api/v1")

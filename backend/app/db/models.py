@@ -421,3 +421,29 @@ class WorkflowExecution(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+NOTIFICATION_KINDS = (
+    "approval.requested", "approval.approved", "approval.rejected", "approval.failed",
+    "workflow.completed", "workflow.failed", "document.ready", "document.failed",
+)
+
+
+class Notification(Base):
+    """An in-app message for one person ("your approval was decided", "a run failed"). It carries a short
+    title and a link, never secrets or full email text."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (Index("ix_notifications_user", "user_id", "read_at", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    link: Mapped[str | None] = mapped_column(String(200), nullable=True)  # an in-app path such as /approvals
+    entity_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

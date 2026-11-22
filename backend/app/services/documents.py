@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, undefer
 
 from app.core.config import get_settings
 from app.db.tenancy import bind_tenant
+from app.services import notify as notifications
 from app.db.models import ActivityLog, Document, DocumentChunk
 from app.services.chunking import chunk_pages
 from app.services.embeddings import Embedder
@@ -88,6 +89,7 @@ def process_document(session_factory, embedder: Embedder, document_id: uuid.UUID
             doc.page_count = sum(1 for p in pages if p.number is not None) or None
             doc.error_message = None
             _log(db, doc, "document.indexed", {"chunks": len(chunks)})
+            notifications.document_finished(db, doc)
             db.commit()
         except ExtractionError as e:
             db.rollback()
@@ -107,4 +109,5 @@ def _mark_failed(db: Session, document_id: uuid.UUID, message: str) -> None:
     doc.error_message = message[:500]
     doc.chunk_count = 0
     _log(db, doc, "document.failed", {})
+    notifications.document_finished(db, doc)
     db.commit()

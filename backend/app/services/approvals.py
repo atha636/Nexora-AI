@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ROLE_RANK, AuthContext, log_activity
 from app.db.models import ApprovalRequest, EmailDraft, Lead, utcnow
+from app.services import notify as notifications
 from app.services.email_provider import EmailSendError, get_email_provider
 
 
@@ -84,6 +85,7 @@ def request_email_approval(db: Session, ctx: AuthContext, draft: EmailDraft, *, 
     db.flush()
     log_activity(db, ctx, entity_type="approval", entity_id=approval.id, action="approval.requested",
                  details={"action": "send_email", "via": via})
+    notifications.approval_requested(db, approval)
     return approval
 
 
@@ -137,6 +139,7 @@ def reject(db: Session, ctx: AuthContext, approval_id: uuid.UUID, note: str | No
     if draft and draft.status == "pending_approval":
         draft.status = "draft"  # the author can revise and ask again
     log_activity(db, ctx, entity_type="approval", entity_id=a.id, action="approval.rejected")
+    notifications.approval_decided(db, a)
     _notify_workflows(db, a)
     db.commit()
     db.refresh(a)
@@ -186,6 +189,7 @@ def _execute(db: Session, ctx: AuthContext, a: ApprovalRequest) -> ApprovalReque
         if draft:
             draft.status = "failed"
         log_activity(db, ctx, entity_type="approval", entity_id=a.id, action="approval.failed")
+        notifications.approval_decided(db, a)
         _notify_workflows(db, a)
         db.commit()
         db.refresh(a)
@@ -202,6 +206,7 @@ def _execute(db: Session, ctx: AuthContext, a: ApprovalRequest) -> ApprovalReque
         db, ctx, entity_type="approval", entity_id=a.id, action="email.sent",
         details={"provider": receipt.provider, "simulated": receipt.simulated, "lead_id": p["lead_id"]},
     )
+    notifications.approval_decided(db, a)
     _notify_workflows(db, a)
     db.commit()
     db.refresh(a)

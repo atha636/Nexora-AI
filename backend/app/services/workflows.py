@@ -34,6 +34,7 @@ from app.db.models import (
     WorkflowExecution,
     utcnow,
 )
+from app.services import notify as notifications
 from app.services.approvals import ApprovalError, request_email_approval
 from app.services.email_drafts import create_draft
 from app.services.llm import LLMError, LLMNotConfigured
@@ -274,7 +275,9 @@ def _claim(db: Session, ex: WorkflowExecution, allowed: tuple[str, ...]) -> None
     db.expire_all()
 
 
-def run_execution(db: Session, ctx: AuthContext, llm, execution_id: uuid.UUID, *, retry: bool = False) -> WorkflowExecution:
+def run_execution(
+    db: Session, ctx: AuthContext, llm, execution_id: uuid.UUID, *, retry: bool = False, interactive: bool = True
+) -> WorkflowExecution:
     ex = get_execution(db, ctx, execution_id)
     if retry:
         if ex.attempts >= MAX_RUNS:
@@ -284,7 +287,11 @@ def run_execution(db: Session, ctx: AuthContext, llm, execution_id: uuid.UUID, *
         _claim(db, ex, ("queued",))
     build_graph(db, ctx, llm, execution_id).invoke({"outcome": "continue"}, config={"recursion_limit": 30})
     db.expire_all()
-    return db.get(WorkflowExecution, execution_id)
+    ex = db.get(WorkflowExecution, execution_id)
+    # A person watching the screen already sees the result, so only background runs notify them of success.
+    notifications.workflow_finished(db, ex, actor=ctx.user.id if interactive else None)
+    db.commit()
+    return ex
 
 
 def run_in_background(session_factory, llm, execution_id: uuid.UUID, user_id: uuid.UUID, org_id: uuid.UUID) -> None:
@@ -296,7 +303,7 @@ def run_in_background(session_factory, llm, execution_id: uuid.UUID, user_id: uu
         if user is None or member is None:
             return
         try:
-            run_execution(db, AuthContext(user=user, organization_id=org_id, role=member.role), llm, execution_id)
+            run_execution(db, AuthContext(user=user, organization_id=org_id, role=member.role), llm, execution_id, interactive=False)
         except WorkflowError:
             pass  # already started elsewhere
         except Exception as e:  # noqa: BLE001
@@ -351,3 +358,4 @@ def on_approval_finished(db: Session, approval: ApprovalRequest) -> None:
             steps[-1] = {**steps[-1], "status": step_status, "summary": summary, "error": error}
         ex.steps = steps
         ex.status, ex.error_message, ex.finished_at = status, error, utcnow()
+        notifications.workflow_finished(db, ex, actor=approval.decided_by)
