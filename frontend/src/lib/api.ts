@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  AppNotification,
   ActivityItem,
   ObservabilityStats,
   RunSummary,
@@ -244,4 +245,11 @@ export const observabilityApi = {
   trace: async (id: string) => (await api.get<Trace>(`/agent/runs/${id}/trace`)).data,
   activity: async (action?: string) =>
     (await api.get<{ items: ActivityItem[]; total: number }>('/activity', { params: { action: action || undefined, limit: 50 } })).data,
+}
+
+// ---------- notifications ----------
+export const notificationsApi = {
+  list: async () => (await api.get<{ items: AppNotification[]; unread: number }>('/notifications', { params: { limit: 20 } })).data,
+  read: async (id: string) => (await api.post<AppNotification>(`/notifications/${id}/read`)).data,
+  readAll: async () => (await api.post<{ marked: number }>('/notifications/read-all')).data,
 }

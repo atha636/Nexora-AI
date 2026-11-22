@@ -1,7 +1,7 @@
 import { Logo } from '../ui/Logo'
+import NotificationBell from './NotificationBell'
 import {
   BarChart3,
-  Bell,
   BookOpen,
   CheckSquare,
   GitBranch,
@@ -115,9 +115,7 @@ export default function AppLayout() {
             Your Intelligent AI Agent for Business Operations
           </p>
           <div className="flex items-center gap-3">
-            <button aria-label="Notifications" className="rounded-md p-2 text-slate-400 hover:bg-navy-700 hover:text-white">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">
               <p className="text-sm font-medium">{user?.full_name}</p>
               <p className="text-xs text-slate-500">

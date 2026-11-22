@@ -527,3 +527,14 @@ export interface ActivityItem {
   created_at: string
   details: Record<string, unknown> | null
 }
+
+// ---------- notifications ----------
+export interface AppNotification {
+  id: string
+  kind: string
+  title: string
+  body: string | null
+  link: string | null
+  read_at: string | null
+  created_at: string
+}
