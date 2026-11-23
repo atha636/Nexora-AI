@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Plus, Search, Trash2, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { PriorityBadge, StatusBadge } from '../components/leads/Badges'
 import LeadForm from '../components/leads/LeadForm'
 import { Button } from '../components/ui/Button'
@@ -53,6 +53,15 @@ export default function Leads() {
   const [editing, setEditing] = useState<Lead | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Lead | null>(null)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  // The command palette links here with ?new=1 to open the "new lead" form straight away.
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setEditing('new')
+      setParams({}, { replace: true })
+    }
+  }, [params, setParams])
 
   // Wait 300ms after typing stops before querying, and go back to page 1.
   useEffect(() => {

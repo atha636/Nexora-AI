@@ -13,6 +13,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
+import Settings from './pages/Settings'
 import Signup from './pages/Signup'
 
 // Chart pages pull in Recharts (large), so they load only when visited.
@@ -20,10 +21,6 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Observability = lazy(() => import('./pages/Observability'))
 const Assistant = lazy(() => import('./pages/Assistant')) // pulls in the markdown renderer and charts
-
-const placeholders = [
-  { path: 'settings', title: 'Settings' },
-]
 
 export default function App() {
   return (
@@ -46,9 +43,7 @@ export default function App() {
           <Route path="approvals" element={<Approvals />} />
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />
-          {placeholders.map((p) => (
-            <Route key={p.path} path={p.path} element={<ComingSoon title={p.title} />} />
-          ))}
+          <Route path="settings" element={<Settings />} />
           <Route path="*" element={<ComingSoon title="Page not found" />} />
         </Route>
       </Route>

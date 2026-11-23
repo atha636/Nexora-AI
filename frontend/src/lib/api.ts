@@ -29,6 +29,7 @@ import type {
   LeadPriority,
   LeadQuery,
   LeadStatus,
+  Role,
   TeamMember,
   User,
 } from './types'
@@ -130,6 +131,28 @@ export const authApi = {
   logout: async () => api.post('/auth/logout'),
   me: async () => (await api.get<User>('/auth/me')).data,
   team: async () => (await api.get<TeamMember[]>('/team')).data,
+}
+
+// ---------- settings & team management ----------
+export interface NewMemberInput {
+  full_name: string
+  email: string
+  password: string
+  role: Exclude<Role, 'owner'>
+}
+
+export const accountApi = {
+  updateProfile: async (full_name: string) => (await api.patch<User>('/account/profile', { full_name })).data,
+  changePassword: async (current_password: string, new_password: string) =>
+    api.post('/account/password', { current_password, new_password }),
+  renameOrganization: async (name: string) => (await api.patch<User>('/account/organization', { name })).data,
+}
+
+export const teamApi = {
+  add: async (body: NewMemberInput) => (await api.post<TeamMember>('/team', body)).data,
+  changeRole: async (id: string, role: Exclude<Role, 'owner'>) =>
+    (await api.patch<TeamMember>(`/team/${id}`, { role })).data,
+  remove: async (id: string) => api.delete(`/team/${id}`),
 }
 
 // ---------- leads ----------

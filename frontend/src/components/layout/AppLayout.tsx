@@ -1,4 +1,5 @@
 import { Logo } from '../ui/Logo'
+import CommandPalette from './CommandPalette'
 import NotificationBell from './NotificationBell'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import {
@@ -15,9 +16,10 @@ import {
   Users,
   X,
   MessageSquare,
+  Search,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { approvalsApi } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -75,8 +77,21 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
+
+  // Ctrl+K (Cmd+K on Mac) toggles the command palette from anywhere in the app.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen((v) => !v)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="flex h-full">
@@ -113,10 +128,23 @@ export default function AppLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <p className="hidden text-sm text-slate-400 sm:block">
-            Your Intelligent AI Agent for Business Operations
-          </p>
+          <button
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Open command palette"
+            className="hidden items-center gap-2 rounded-lg border border-line bg-navy-950 px-3 py-1.5 text-sm text-slate-500 transition hover:border-slate-500 hover:text-slate-300 sm:flex sm:w-72"
+          >
+            <Search className="h-4 w-4" aria-hidden />
+            <span>Search or jump to…</span>
+            <kbd className="ml-auto rounded border border-line px-1.5 py-0.5 text-[10px]">Ctrl K</kbd>
+          </button>
           <div className="flex items-center gap-3">
+            <button
+              aria-label="Open command palette"
+              onClick={() => setPaletteOpen(true)}
+              className="rounded-md p-2 text-slate-400 hover:bg-navy-700 hover:text-white sm:hidden"
+            >
+              <Search className="h-5 w-5" />
+            </button>
             <ThemeToggle />
             <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">
@@ -147,6 +175,7 @@ export default function AppLayout() {
           </div>
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )
 }
