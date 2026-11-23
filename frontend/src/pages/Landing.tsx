@@ -6,6 +6,7 @@ import AgentDemo from '../components/landing/AgentDemo'
 import { CountUp, GlowCard, Reveal } from '../components/landing/Motion'
 import NetworkBackground from '../components/landing/NetworkBackground'
 import { Logo } from '../components/ui/Logo'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { useAuth } from '../lib/auth'
 
 const FEATURES = [
@@ -53,6 +54,7 @@ export default function Landing() {
             <a href="#security" className="hover:text-white">Security</a>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             {!user && (
               <Link to="/login" className="rounded-lg px-3 py-2 text-sm text-slate-300 hover:text-white">
                 Sign in

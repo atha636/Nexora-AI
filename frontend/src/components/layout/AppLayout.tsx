@@ -1,5 +1,6 @@
 import { Logo } from '../ui/Logo'
 import NotificationBell from './NotificationBell'
+import { ThemeToggle } from '../ui/ThemeToggle'
 import {
   BarChart3,
   BookOpen,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { approvalsApi } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { ROLE_RANK } from '../../lib/types'
@@ -75,6 +76,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const { user, logout } = useAuth()
+  const location = useLocation()
 
   return (
     <div className="flex h-full">
@@ -115,6 +117,7 @@ export default function AppLayout() {
             Your Intelligent AI Agent for Business Operations
           </p>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">
               <p className="text-sm font-medium">{user?.full_name}</p>
@@ -139,7 +142,9 @@ export default function AppLayout() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <Outlet />
+          <div key={location.pathname} className="nx-page">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

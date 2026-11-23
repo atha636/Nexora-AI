@@ -4,9 +4,9 @@ import type { LabelCount, MonthLeads, MonthRevenue, SalesPerson } from '../../li
 
 // Series colors validated for the dark card surface (see dataviz palette check):
 // blue / orange / aqua pass the contrast, lightness and colour-blind-separation gates.
-export const SERIES = { blue: '#2fcb8b', orange: '#e8c07a', aqua: '#9aa39a' }
-const GRID = '#232723'
-const MUTED = '#858b85'
+export const SERIES = { blue: 'var(--color-brand)', orange: 'var(--series-2)', aqua: 'var(--series-3)' }
+const GRID = 'var(--chart-grid)'
+const MUTED = 'var(--chart-muted)'
 
 interface TipProps {
   active?: boolean
@@ -111,7 +111,7 @@ export function ConversionChart({ data, height }: { data: MonthLeads[]; height?:
           dataKey="conversion_rate"
           stroke={SERIES.orange}
           strokeWidth={2}
-          dot={{ r: 4, fill: SERIES.orange, stroke: '#0b0c0b', strokeWidth: 2 }}
+          dot={{ r: 4, fill: SERIES.orange, stroke: 'var(--chart-dot-ring)', strokeWidth: 2 }}
           activeDot={{ r: 5 }}
         />
       </LineChart>
@@ -145,7 +145,7 @@ function HorizontalBars({
           fill={color}
           radius={[0, 4, 4, 0]}
           maxBarSize={20}
-          label={{ position: 'right', fill: '#d4d8d4', fontSize: 12, formatter: (v: unknown) => valueFormat(Number(v)) }}
+          label={{ position: 'right', fill: 'var(--chart-label)', fontSize: 12, formatter: (v: unknown) => valueFormat(Number(v)) }}
         />
       </BarChart>
     </ChartBox>

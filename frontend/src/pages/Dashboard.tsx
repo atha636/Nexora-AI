@@ -17,24 +17,36 @@ import {
   SalesPerformanceChart,
 } from '../components/charts/Charts'
 import BriefingCard from '../components/dashboard/BriefingCard'
+import { AnimatedNumber } from '../components/ui/AnimatedNumber'
 import { Card, Skeleton } from '../components/ui/Card'
+import { Sparkline } from '../components/ui/Sparkline'
 import { analyticsApi, errorMessage, fetchHealth } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { formatCurrency, formatNumber, timeAgo } from '../lib/format'
-import type { Kpis } from '../lib/types'
+import type { DashboardOverview, Kpis } from '../lib/types'
 
-const kpiCards: { label: string; icon: LucideIcon; value: (k: Kpis) => string; hint?: (k: Kpis) => string }[] = [
-  { label: 'Total leads', icon: Users, value: (k) => formatNumber(k.total_leads), hint: (k) => `${k.won_leads} won` },
-  { label: 'Total revenue', icon: DollarSign, value: (k) => formatCurrency(k.total_revenue) },
+interface KpiCard {
+  label: string
+  icon: LucideIcon
+  num: (k: Kpis) => number
+  fmt: (n: number) => string
+  hint?: (k: Kpis) => string
+  trend?: (d: DashboardOverview) => number[]
+}
+
+const kpiCards: KpiCard[] = [
   {
-    label: 'Conversion rate',
-    icon: Target,
-    value: (k) => `${k.conversion_rate}%`,
-    hint: (k) => `${k.won_leads} of ${k.total_leads} leads`,
+    label: 'Total leads', icon: Users, num: (k) => k.total_leads, fmt: (n) => formatNumber(Math.round(n)), hint: (k) => `${k.won_leads} won`,
+    trend: (d) => d.lead_acquisition.reduce<number[]>((acc, m) => [...acc, (acc.at(-1) ?? 0) + m.created], []),
   },
-  { label: 'Active workflows', icon: GitBranch, value: (k) => formatNumber(k.active_workflows), hint: () => 'Enabled automations' },
-  { label: 'Pending approvals', icon: CheckSquare, value: (k) => formatNumber(k.pending_approvals), hint: () => 'Waiting for a decision' },
-  { label: 'Documents indexed', icon: FileText, value: (k) => formatNumber(k.documents_indexed), hint: () => 'Ready for search' },
+  { label: 'Total revenue', icon: DollarSign, num: (k) => k.total_revenue, fmt: (n) => formatCurrency(Math.round(n)), trend: (d) => d.monthly_revenue.map((m) => m.revenue) },
+  {
+    label: 'Conversion rate', icon: Target, num: (k) => k.conversion_rate, fmt: (n) => `${n.toFixed(1)}%`, hint: (k) => `${k.won_leads} of ${k.total_leads} leads`,
+    trend: (d) => d.lead_acquisition.map((m) => m.conversion_rate),
+  },
+  { label: 'Active workflows', icon: GitBranch, num: (k) => k.active_workflows, fmt: (n) => formatNumber(Math.round(n)), hint: () => 'Enabled automations' },
+  { label: 'Pending approvals', icon: CheckSquare, num: (k) => k.pending_approvals, fmt: (n) => formatNumber(Math.round(n)), hint: () => 'Waiting for a decision' },
+  { label: 'Documents indexed', icon: FileText, num: (k) => k.documents_indexed, fmt: (n) => formatNumber(Math.round(n)), hint: () => 'Ready for search' },
 ]
 
 function ApiStatus() {
@@ -106,8 +118,8 @@ export default function Dashboard() {
       <BriefingCard />
 
       <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {kpiCards.map(({ label, icon: Icon, value, hint }) => (
-          <Card key={label} className="p-5">
+        {kpiCards.map(({ label, icon: Icon, num, fmt, hint, trend }) => (
+          <Card key={label} lift className="p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-400">{label}</p>
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand/15 text-brand">
@@ -116,8 +128,11 @@ export default function Dashboard() {
             </div>
             {d ? (
               <>
-                <p className="mt-3 text-3xl font-semibold tracking-tight">{value(d.kpis)}</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">
+                  <AnimatedNumber value={num(d.kpis)} format={fmt} />
+                </p>
                 {hint && <p className="mt-1 text-xs text-slate-500">{hint(d.kpis)}</p>}
+                {trend && <Sparkline data={trend(d)} className="mt-3" />}
               </>
             ) : overview.isError ? (
               <p className="mt-3 text-3xl font-semibold text-slate-600">—</p>
