@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Moon, Sun, Trash2, UserPlus } from 'lucide-react'
+import { Moon, Sparkles, Sun, Trash2, UserPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
 import { inputClass, SelectField, TextField } from '../components/ui/Field'
 import { ConfirmDialog, Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
+import { TOUR_EVENT } from '../components/layout/ProductTour'
 import { useTheme } from '../hooks/useTheme'
 import { accountApi, authApi, errorMessage, teamApi, type NewMemberInput } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -125,6 +126,13 @@ function AppearanceSection() {
             <Icon className="h-4 w-4" aria-hidden /> {label}
           </button>
         ))}
+      </div>
+      <div className="mt-5 border-t border-line pt-4">
+        <p className="text-sm font-medium">Product tour</p>
+        <p className="mt-0.5 text-xs text-slate-500">A short walkthrough of the main areas.</p>
+        <Button variant="outline" className="mt-3" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}>
+          <Sparkles className="h-4 w-4" aria-hidden /> Take the tour again
+        </Button>
       </div>
     </Section>
   )

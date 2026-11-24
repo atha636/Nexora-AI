@@ -197,8 +197,10 @@ export default function Assistant() {
   const showEmpty = messages.length === 0 && pendingText === null && failure === null
 
   useEffect(() => {
+    // Nothing to follow on the welcome screen. Scrolling down there would hide its heading on short screens.
+    if (showEmpty) return
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages.length, pendingText, failure])
+  }, [messages.length, pendingText, failure, showEmpty])
 
   function submit(text: string) {
     const clean = text.trim()

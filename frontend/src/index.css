@@ -287,7 +287,9 @@ html {
   }
 }
 .nx-page {
-  animation: nx-page 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  /* `backwards`, not `both`: once the fade finishes nothing may keep a transform on the page, because a
+     transformed parent becomes the containing block for position: fixed children and traps pop-ups inside it. */
+  animation: nx-page 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 .nx-skeleton {
   background: linear-gradient(100deg, var(--color-navy-700) 30%, var(--color-navy-600) 50%, var(--color-navy-700) 70%);

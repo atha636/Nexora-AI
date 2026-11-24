@@ -18,4 +18,13 @@ describe('Modal', () => {
     await userEvent.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledOnce()
   })
+  it('is attached to the page body, so no parent can trap or clip it', () => {
+    const { container } = render(
+      <div style={{ transform: 'translateY(0)', overflow: 'hidden' }}>
+        <Modal open title="T" onClose={() => {}}>body</Modal>
+      </div>,
+    )
+    expect(container.querySelector('[role="dialog"]')).toBeNull() // not inside the transformed parent
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
+  })
 })

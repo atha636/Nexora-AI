@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity, BarChart3, BookOpen, CheckSquare, FileText, GitBranch, LayoutDashboard, LogOut, Mail,
-  MessageSquare, Moon, Plus, Search, Settings, Sun, User, Users, type LucideIcon,
+  MessageSquare, Moon, Plus, Sparkles, Search, Settings, Sun, User, Users, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
+import { TOUR_EVENT } from './ProductTour'
 import { documentsApi, leadsApi } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { ROLE_RANK, type Role } from '../../lib/types'
@@ -83,6 +84,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       ...(can('employee') ? [{ id: 'new-lead', group: 'Actions' as const, label: 'Add a new lead', icon: Plus, keywords: 'create', run: go('/leads?new=1') }] : []),
       { id: 'ask', group: 'Actions', label: 'Ask the AI assistant', icon: MessageSquare, keywords: 'chat', run: go('/assistant') },
       { id: 'theme', group: 'Actions', label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', icon: theme === 'dark' ? Sun : Moon, keywords: 'appearance', run: () => { toggle(); onClose() } },
+      { id: 'tour', group: 'Actions', label: 'Take the product tour', icon: Sparkles, keywords: 'help guide walkthrough demo', run: () => { onClose(); setTimeout(() => window.dispatchEvent(new Event(TOUR_EVENT)), 150) } },
       { id: 'profile', group: 'Actions', label: 'Edit my profile', icon: User, keywords: 'account name', run: go('/settings') },
       { id: 'logout', group: 'Actions', label: 'Sign out', icon: LogOut, run: () => { onClose(); void logout() } },
     ]
@@ -136,7 +138,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
             onChange={(e) => setText(e.target.value)}
             placeholder="Search pages, leads, documents, actions…"
             style={{ outline: "none", boxShadow: "none" }}
-            className="h-12 flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500"
+            className="h-12 min-w-0 flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500"
           />
           <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-slate-500">Esc</kbd>
         </div>

@@ -1,6 +1,7 @@
 import { Logo } from '../ui/Logo'
 import CommandPalette from './CommandPalette'
 import NotificationBell from './NotificationBell'
+import ProductTour from './ProductTour'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import {
   BarChart3,
@@ -53,6 +54,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           key={to}
           to={to}
           end={to === '/dashboard'}
+          data-tour={`nav-${to.slice(1)}`}
           onClick={onNavigate}
           className={({ isActive }) =>
             `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -130,6 +132,7 @@ export default function AppLayout() {
           </button>
           <button
             onClick={() => setPaletteOpen(true)}
+            data-tour="search"
             aria-label="Open command palette"
             className="hidden items-center gap-2 rounded-lg border border-line bg-navy-950 px-3 py-1.5 text-sm text-slate-500 transition hover:border-slate-500 hover:text-slate-300 sm:flex sm:w-72"
           >
@@ -176,6 +179,7 @@ export default function AppLayout() {
         </main>
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <ProductTour />
     </div>
   )
 }

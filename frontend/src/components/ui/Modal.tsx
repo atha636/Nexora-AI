@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from './Button'
 
 export function Modal({
@@ -23,14 +24,15 @@ export function Modal({
   }, [open, onClose])
 
   if (!open) return null
-  return (
+  // Rendered at the top of the page, so a parent's transform or overflow can never trap or clip the dialog.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="presentation">
       <button aria-label="Close dialog" className="absolute inset-0 cursor-default bg-black/70" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-line bg-navy-900 p-5 shadow-2xl sm:rounded-2xl"
+        className="relative max-h-[92vh] max-h-[92dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-2xl border border-line bg-navy-900 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 id={titleId} className="text-lg font-semibold">
@@ -42,7 +44,8 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

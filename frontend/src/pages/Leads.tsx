@@ -312,7 +312,43 @@ export default function Leads() {
             {!hasFilters && <Button onClick={() => setEditing('new')}>Add a lead</Button>}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones: one card per lead, so nothing needs sideways scrolling. */}
+          <ul className={`divide-y divide-line sm:hidden ${leads.isFetching ? 'opacity-70' : ''}`}>
+            <li className="px-4 py-2.5 text-xs text-slate-400">
+              <label className="flex items-center gap-3">
+                <input type="checkbox" className="h-4 w-4" checked={allSelected} onChange={toggleAll} /> Select all on this page
+              </label>
+            </li>
+            {items.map((l) => (
+              <li key={l.id} className="flex gap-3 p-4">
+                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" aria-label={`Select ${l.name}`} checked={selected.has(l.id)} onChange={() => toggleOne(l.id)} />
+                <div className="min-w-0 flex-1">
+                  <Link to={`/leads/${l.id}`} className="block truncate font-medium hover:text-electric">
+                    {l.name}
+                  </Link>
+                  {l.email && <p className="truncate text-xs text-slate-500">{l.email}</p>}
+                  <p className="mt-1 text-sm text-slate-300">{[l.company, l.city].filter(Boolean).join(' · ') || '—'}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <PriorityBadge priority={l.priority} />
+                    <StatusBadge status={l.status} />
+                    <span className="text-xs text-slate-500">Contacted: {formatDate(l.last_contacted_at)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1">
+                    <button className="rounded px-2 py-1.5 text-sm text-electric hover:bg-navy-700" onClick={() => setEditing(l)}>
+                      Edit
+                    </button>
+                    {can('manager') && (
+                      <button aria-label={`Delete ${l.name}`} className="rounded p-2 text-slate-400 hover:bg-navy-700 hover:text-red-400" onClick={() => setDeleting(l)}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className={`w-full min-w-[760px] text-left text-sm ${leads.isFetching ? 'opacity-70' : ''}`}>
               <thead className="border-b border-line text-xs uppercase tracking-wide text-slate-400">
                 <tr>
@@ -370,6 +406,7 @@ export default function Leads() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {total > PAGE_SIZE && (
