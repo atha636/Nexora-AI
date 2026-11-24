@@ -2,6 +2,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
+  Download,
   FileText,
   ShieldAlert,
   type LucideIcon,
@@ -85,6 +86,23 @@ function filterChips(filters: Record<string, string | number>): string[] {
   )
 }
 
+function downloadLeadsCsv(leads: ChatLead[]) {
+  // Spreadsheet programs run text that starts with = + - @ as a formula, so prefix those cells with an apostrophe.
+  const cell = (v: unknown) => {
+    let t = v == null ? '' : String(v)
+    if (/^[=+\-@]/.test(t)) t = `'${t}`
+    return `"${t.replace(/"/g, '""')}"`
+  }
+  const rows = [['Name', 'Company', 'City', 'Status', 'Priority', 'Last contacted'], ...leads.map((l) => [l.name, l.company, l.city, l.status, l.priority, l.last_contacted_at ?? ''])]
+  const blob = new Blob([rows.map((r) => r.map(cell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'leads.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function LeadsBlock({ data }: { data: Extract<Block, { type: 'leads' }>['data'] }) {
   const chips = filterChips(data.filters)
   return (
@@ -95,18 +113,27 @@ function LeadsBlock({ data }: { data: Extract<Block, { type: 'leads' }>['data'] 
             ? 'No matching leads'
             : `${data.returned} of ${formatNumber(data.total_matching)} matching lead${data.total_matching === 1 ? '' : 's'}`}
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {chips.map((c) => (
             <span key={c} className="rounded-full bg-navy-700 px-2 py-0.5 text-xs text-slate-300">
               {c}
             </span>
           ))}
+          {data.leads.length > 0 && (
+            <button
+              type="button"
+              onClick={() => downloadLeadsCsv(data.leads)}
+              className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-slate-300 hover:bg-navy-700"
+            >
+              <Download className="h-3 w-3" aria-hidden /> CSV
+            </button>
+          )}
         </div>
       </div>
       {data.leads.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="max-h-96 overflow-auto">
           <table className="w-full min-w-[34rem] text-left text-xs">
-            <thead className="text-slate-500">
+            <thead className="sticky top-0 bg-navy-900 text-slate-500 shadow-[0_1px_0_var(--color-line)]">
               <tr>
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-2 py-2 font-medium">Company</th>
@@ -118,7 +145,7 @@ function LeadsBlock({ data }: { data: Extract<Block, { type: 'leads' }>['data'] 
             </thead>
             <tbody className="divide-y divide-line/60">
               {data.leads.map((l) => (
-                <tr key={l.id}>
+                <tr key={l.id} className="transition-colors even:bg-navy-800/30 hover:bg-navy-700/50">
                   <td className="px-4 py-2 font-medium">
                     <Link to={`/leads/${l.id}`} className="text-slate-100 hover:text-electric hover:underline">
                       {l.name}

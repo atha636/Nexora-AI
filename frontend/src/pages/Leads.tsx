@@ -1,8 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Plus, Search, Trash2, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, KanbanSquare, Plus, Search, Table2, Trash2, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PriorityBadge, StatusBadge } from '../components/leads/Badges'
+import LeadBoard from '../components/leads/LeadBoard'
 import LeadForm from '../components/leads/LeadForm'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
@@ -53,6 +54,22 @@ export default function Leads() {
   const [editing, setEditing] = useState<Lead | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Lead | null>(null)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [view, setView] = useState<'table' | 'board'>(() => {
+    try {
+      return localStorage.getItem('nexora-leads-view') === 'board' ? 'board' : 'table'
+    } catch {
+      return 'table'
+    }
+  })
+  const chooseView = (v: 'table' | 'board') => {
+    setView(v)
+    setSelected(new Set())
+    try {
+      localStorage.setItem('nexora-leads-view', v)
+    } catch {
+      /* the view still changes for this visit */
+    }
+  }
 
   // The command palette links here with ?new=1 to open the "new lead" form straight away.
   const [params, setParams] = useSearchParams()
@@ -156,9 +173,23 @@ export default function Leads() {
           <h1 className="text-2xl font-semibold tracking-tight">CRM</h1>
           <p className="mt-1 text-sm text-slate-400">{leads.data ? `${total} lead${total === 1 ? '' : 's'}` : 'Loading…'}</p>
         </div>
-        <Button onClick={() => setEditing('new')}>
-          <Plus className="h-4 w-4" aria-hidden /> New lead
-        </Button>
+        <div className="flex items-center gap-3">
+          <div role="group" aria-label="View" className="inline-flex rounded-lg border border-line p-0.5">
+            {([['table', 'Table', Table2], ['board', 'Board', KanbanSquare]] as const).map(([v, label, Icon]) => (
+              <button
+                key={v}
+                aria-pressed={view === v}
+                onClick={() => chooseView(v)}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition ${view === v ? 'bg-brand/20 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                <Icon className="h-4 w-4" aria-hidden /> {label}
+              </button>
+            ))}
+          </div>
+          <Button onClick={() => setEditing('new')}>
+            <Plus className="h-4 w-4" aria-hidden /> New lead
+          </Button>
+        </div>
       </div>
 
       <Card className="p-4">
@@ -195,6 +226,7 @@ export default function Leads() {
             ))}
           </select>
           <select
+            hidden={view === 'board'}
             aria-label="Filter by status"
             className={inputClass}
             value={query.status}
@@ -210,6 +242,10 @@ export default function Leads() {
         </div>
       </Card>
 
+      {view === 'board' ? (
+        <LeadBoard query={query} onEdit={setEditing} />
+      ) : (
+        <>
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-brand/40 bg-brand/10 px-4 py-2 text-sm" role="region" aria-label="Bulk actions">
           <span className="font-medium">{selected.size} selected</span>
@@ -352,6 +388,8 @@ export default function Leads() {
           </div>
         )}
       </Card>
+        </>
+      )}
 
       <Modal open={editing !== null} title={editing === 'new' ? 'New lead' : 'Edit lead'} onClose={() => setEditing(null)}>
         {editing && (

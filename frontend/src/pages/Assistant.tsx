@@ -1,21 +1,42 @@
 import { Logo } from '../components/ui/Logo'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, ArrowUp, Loader2, MessagesSquare, RotateCcw, X } from 'lucide-react'
+import { AlertCircle, ArrowUp, BarChart3, BookOpen, Loader2, MessagesSquare, RotateCcw, Users, Zap, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { ActivityBlock, ResultBlocks } from '../components/assistant/Blocks'
 import ConversationSidebar from '../components/assistant/ConversationSidebar'
 import Markdown from '../components/assistant/Markdown'
+import MessageActions, { followUps, usedWriteTool } from '../components/assistant/MessageActions'
+import { useTypewriter } from '../hooks/useTypewriter'
 import { ConfirmDialog } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { agentApi, errorMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import type { ChatMessage, ConversationDetail, ConversationSummary } from '../lib/types'
 
-const SUGGESTIONS = [
-  'Find all high-priority leads from Delhi that have not been contacted in the last 7 days',
-  'How much revenue did we make over the last 6 months?',
-  'Which cities bring in the most leads?',
-  'What does our refund policy say?',
+const SUGGESTION_GROUPS: { title: string; icon: LucideIcon; prompts: string[] }[] = [
+  {
+    title: 'Find leads',
+    icon: Users,
+    prompts: [
+      'Find all high-priority leads from Delhi that have not been contacted in the last 7 days',
+      'Show my newest leads from Mumbai',
+    ],
+  },
+  {
+    title: 'Understand the numbers',
+    icon: BarChart3,
+    prompts: ['How much revenue did we make over the last 6 months?', 'Which cities bring in the most leads?'],
+  },
+  {
+    title: 'Ask your documents',
+    icon: BookOpen,
+    prompts: ['What does our refund policy say?', 'Summarise the main points in our uploaded documents'],
+  },
+  {
+    title: 'Get work done',
+    icon: Zap,
+    prompts: ['Draft follow-up emails for high-priority leads not contacted this week', 'What is waiting for my approval?'],
+  },
 ]
 
 const MAX_LENGTH = 2000
@@ -36,14 +57,65 @@ function AssistantAvatar() {
   )
 }
 
-function AssistantMessage({ message }: { message: ChatMessage }) {
+function AssistantMessage({
+  message,
+  animate,
+  isLast,
+  idle,
+  prompt,
+  onSend,
+  onToast,
+}: {
+  message: ChatMessage
+  /** True only for the answer that has just arrived. */
+  animate: boolean
+  isLast: boolean
+  idle: boolean
+  /** The question this answer responds to, used for Regenerate. */
+  prompt: string | null
+  onSend: (text: string) => void
+  onToast: (msg: string, kind: 'success' | 'error') => void
+}) {
+  const { shown, done, skip } = useTypewriter(message.content, animate)
+  const writes = usedWriteTool(message.blocks)
+  const suggestions = isLast && idle && done ? followUps(message.blocks) : []
   return (
     <div className="flex gap-3">
       <AssistantAvatar />
       <div className="min-w-0 flex-1 space-y-3">
         <ActivityBlock blocks={message.blocks} />
-        <Markdown text={message.content} messageId={message.id} />
-        <ResultBlocks blocks={message.blocks} messageId={message.id} />
+        <div onClick={done ? undefined : skip} title={done ? undefined : 'Click to show the full answer'} className={done ? '' : 'cursor-pointer'}>
+          <Markdown text={shown} messageId={message.id} />
+          {!done && <span className="nx-caret ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 bg-brand" aria-hidden />}
+        </div>
+        {done && (
+          <div className={animate ? 'nx-pop space-y-3' : 'space-y-3'}>
+            <ResultBlocks blocks={message.blocks} messageId={message.id} />
+            {isLast && (
+              <MessageActions
+                text={message.content}
+                canRegenerate={idle && !writes && !!prompt}
+                regenerateNote={writes ? 'This answer changed data, so it is not re-run.' : undefined}
+                onRegenerate={() => prompt && onSend(prompt)}
+                onToast={onToast}
+              />
+            )}
+            {suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2" aria-label="Suggested follow-ups">
+                {suggestions.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => onSend(q)}
+                    className="rounded-full border border-line px-3 py-1 text-xs text-slate-300 transition hover:border-brand/60 hover:text-white"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -67,6 +139,7 @@ export default function Assistant() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [pendingText, setPendingText] = useState<string | null>(null)
+  const [freshId, setFreshId] = useState<string | null>(null) // the answer that just arrived
   const [failure, setFailure] = useState<{ text: string; message: string } | null>(null)
   const [listOpen, setListOpen] = useState(false)
   const [deleting, setDeleting] = useState<ConversationSummary | null>(null)
@@ -89,6 +162,7 @@ export default function Assistant() {
         messages: [...(old?.messages ?? []), res.user_message, res.assistant_message],
       }))
       setActiveId(res.conversation.id)
+      setFreshId(res.assistant_message.id)
       setPendingText(null)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] }) // agent runs and CRM changes show up there
@@ -215,28 +289,52 @@ export default function Assistant() {
           )}
 
           {showEmpty && !(activeId && (detail.isLoading || detail.isError)) && (
-            <div className="grid place-items-center gap-4 py-8 text-center">
+            <div className="grid place-items-center gap-5 py-6 text-center">
               <Logo size={56} />
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">How can I help, {name}?</h2>
                 <p className="mt-1 text-sm text-slate-400">Ask in plain English. I can look things up and make simple CRM changes for you.</p>
               </div>
-              <div className="grid w-full max-w-xl gap-2 sm:grid-cols-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => submit(s)}
-                    className="rounded-xl border border-line bg-navy-900/60 px-3 py-2.5 text-left text-sm text-slate-300 transition hover:border-brand/60 hover:text-white"
-                  >
-                    {s}
-                  </button>
+              <div className="grid w-full max-w-2xl gap-3 text-left sm:grid-cols-2">
+                {SUGGESTION_GROUPS.map(({ title, icon: Icon, prompts }) => (
+                  <div key={title} className="rounded-xl border border-line bg-navy-900/60 p-3">
+                    <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <Icon className="h-3.5 w-3.5 text-brand" aria-hidden /> {title}
+                    </p>
+                    <div className="space-y-1.5">
+                      {prompts.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => submit(s)}
+                          className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-slate-300 transition hover:bg-brand/10 hover:text-white"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {messages.map((m) => (m.role === 'user' ? <UserBubble key={m.id} text={m.content} /> : <AssistantMessage key={m.id} message={m} />))}
+          {messages.map((m, i) =>
+            m.role === 'user' ? (
+              <UserBubble key={m.id} text={m.content} />
+            ) : (
+              <AssistantMessage
+                key={m.id}
+                message={m}
+                animate={m.id === freshId}
+                isLast={i === messages.length - 1}
+                idle={!busy && failure === null}
+                prompt={messages[i - 1]?.role === 'user' ? messages[i - 1].content : null}
+                onSend={submit}
+                onToast={(msg, kind) => (kind === 'error' ? toast.error(msg) : toast.success(msg))}
+              />
+            ),
+          )}
 
           {pendingText !== null && (
             <>
