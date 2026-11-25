@@ -538,3 +538,36 @@ export interface AppNotification {
   read_at: string | null
   created_at: string
 }
+
+// ---------- tasks ----------
+export interface Task {
+  id: string
+  title: string
+  notes: string | null
+  status: 'open' | 'done'
+  due_at: string | null
+  overdue: boolean
+  completed_at: string | null
+  lead_id: string | null
+  lead_name: string | null
+  assigned_to: string | null
+  assigned_name: string | null
+  created_by: string | null
+  created_at: string
+}
+export interface TaskList {
+  items: Task[]
+  total: number
+}
+export interface TaskSummary {
+  open: number
+  overdue: number
+  due_soon: number
+}
+export interface NewTask {
+  title: string
+  due_at?: string | null
+  lead_id?: string | null
+  assigned_to?: string | null
+  notes?: string | null
+}

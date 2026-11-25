@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity, BarChart3, BookOpen, CheckSquare, FileText, GitBranch, LayoutDashboard, LogOut, Mail,
-  MessageSquare, Moon, Plus, Sparkles, Search, Settings, Sun, User, Users, type LucideIcon,
+  ListChecks, MessageSquare, Moon, Plus, Sparkles, Search, Settings, Sun, User, Users, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -25,6 +25,7 @@ const PAGES: { to: string; label: string; icon: LucideIcon; minRole?: Role; keyw
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, keywords: 'home overview kpi' },
   { to: '/assistant', label: 'AI Assistant', icon: MessageSquare, keywords: 'chat agent ask' },
   { to: '/leads', label: 'CRM leads', icon: Users, keywords: 'customers pipeline' },
+  { to: '/tasks', label: 'Tasks', icon: ListChecks, keywords: 'follow up reminders todo overdue' },
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen, keywords: 'documents rag upload' },
   { to: '/analytics', label: 'Analytics', icon: BarChart3, keywords: 'revenue charts sales' },
   { to: '/workflows', label: 'Workflows', icon: GitBranch, keywords: 'automation' },

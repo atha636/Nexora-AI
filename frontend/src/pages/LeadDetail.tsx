@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PriorityBadge, StatusBadge } from '../components/leads/Badges'
 import GenerateEmailModal from '../components/emails/GenerateEmailModal'
 import LeadForm from '../components/leads/LeadForm'
+import LeadTasks from '../components/tasks/LeadTasks'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
 import { ConfirmDialog, Modal } from '../components/ui/Modal'
@@ -27,6 +28,12 @@ function describe(e: ActivityEvent): string {
       )
       return parts.length ? `Updated — ${parts.join(', ')}` : 'Lead updated'
     }
+    case 'task.created':
+      return `Follow-up added: ${(e.details?.title as string) ?? ''}`
+    case 'task.completed':
+      return `Follow-up done: ${(e.details?.title as string) ?? ''}`
+    case 'task.reopened':
+      return `Follow-up reopened: ${(e.details?.title as string) ?? ''}`
     default:
       return e.action
   }
@@ -134,7 +141,8 @@ export default function LeadDetail() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
-        <Card className="p-5 lg:col-span-3">
+        <div className="space-y-4 lg:col-span-3">
+        <Card className="p-5">
           <h2 className="mb-4 text-sm font-semibold text-slate-200">Details</h2>
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
             {rows.map(([k, v]) => (
@@ -145,8 +153,10 @@ export default function LeadDetail() {
             ))}
           </dl>
         </Card>
+        <LeadTasks leadId={l.id} />
+        </div>
 
-        <Card className="p-5 lg:col-span-2">
+        <Card className="h-fit p-5 lg:col-span-2">
           <h2 className="mb-4 text-sm font-semibold text-slate-200">Activity</h2>
           {activity.isLoading ? (
             <Skeleton className="h-20 w-full" />

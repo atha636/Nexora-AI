@@ -16,13 +16,14 @@ import {
   Settings,
   Users,
   X,
+  ListChecks,
   MessageSquare,
   Search,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { approvalsApi } from '../../lib/api'
+import { approvalsApi, tasksApi } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { ROLE_RANK } from '../../lib/types'
 
@@ -30,6 +31,7 @@ const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/assistant', label: 'AI Assistant', icon: MessageSquare },
   { to: '/leads', label: 'CRM', icon: Users },
+  { to: '/tasks', label: 'Tasks', icon: ListChecks },
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/workflows', label: 'Workflows', icon: GitBranch },
@@ -41,8 +43,10 @@ const nav = [
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pending = useQuery({ queryKey: ['approvals', 'pending'], queryFn: () => approvalsApi.list('pending'), refetchInterval: 60_000 })
+  const tasks = useQuery({ queryKey: ['tasks-summary'], queryFn: tasksApi.summary, refetchInterval: 60_000 }) // also creates due reminders
   const { user } = useAuth()
   const pendingCount = pending.data?.pending ?? 0
+  const taskBadge = tasks.data?.overdue ? { n: tasks.data.overdue, tone: 'bg-red-500/20 text-red-300', word: 'overdue' } : tasks.data?.open ? { n: tasks.data.open, tone: 'bg-navy-700 text-slate-300', word: 'open' } : null
   return (
     <nav aria-label="Main" className="flex h-full flex-col gap-1 p-4">
       <div className="mb-6 flex items-center gap-2 px-2">
@@ -66,6 +70,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="h-4 w-4" aria-hidden />
           {label}
+          {to === '/tasks' && taskBadge && (
+            <span aria-label={`${taskBadge.n} ${taskBadge.word}`} className={`ml-auto rounded-full px-2 text-xs ${taskBadge.tone}`}>
+              {taskBadge.n}
+            </span>
+          )}
           {to === '/approvals' && pendingCount > 0 && (
             <span aria-label={`${pendingCount} pending`} className="ml-auto rounded-full bg-amber-500/20 px-2 text-xs text-amber-300">
               {pendingCount}

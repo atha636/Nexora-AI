@@ -29,7 +29,11 @@ import type {
   LeadPriority,
   LeadQuery,
   LeadStatus,
+  NewTask,
   Role,
+  Task,
+  TaskList,
+  TaskSummary,
   TeamMember,
   User,
 } from './types'
@@ -275,4 +279,15 @@ export const notificationsApi = {
   list: async () => (await api.get<{ items: AppNotification[]; unread: number }>('/notifications', { params: { limit: 20 } })).data,
   read: async (id: string) => (await api.post<AppNotification>(`/notifications/${id}/read`)).data,
   readAll: async () => (await api.post<{ marked: number }>('/notifications/read-all')).data,
+}
+
+// ---------- tasks ----------
+export const tasksApi = {
+  list: async (params: { scope?: 'mine' | 'all'; state?: 'open' | 'done' | 'all'; lead_id?: string }) =>
+    (await api.get<TaskList>('/tasks', { params })).data,
+  summary: async () => (await api.get<TaskSummary>('/tasks/summary')).data,
+  create: async (body: NewTask) => (await api.post<Task>('/tasks', body)).data,
+  update: async (id: string, body: Partial<Pick<Task, 'title' | 'notes' | 'due_at' | 'assigned_to' | 'status'>>) =>
+    (await api.patch<Task>(`/tasks/${id}`, body)).data,
+  remove: async (id: string) => api.delete(`/tasks/${id}`),
 }

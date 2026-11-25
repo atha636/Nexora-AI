@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, CheckSquare, FileText, GitBranch, TriangleAlert } from 'lucide-react'
+import { Bell, CheckCheck, CheckSquare, FileText, GitBranch, ListChecks, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { notificationsApi } from '../../lib/api'
@@ -11,6 +11,7 @@ const POLL_MS = 30_000
 
 function iconFor(kind: string) {
   if (kind.endsWith('.failed') || kind === 'approval.rejected') return { Icon: TriangleAlert, tone: 'text-amber-300 bg-amber-500/10' }
+  if (kind.startsWith('task')) return { Icon: ListChecks, tone: 'text-sky-300 bg-sky-500/10' }
   if (kind.startsWith('workflow')) return { Icon: GitBranch, tone: 'text-brand bg-brand/10' }
   if (kind.startsWith('document')) return { Icon: FileText, tone: 'text-brand bg-brand/10' }
   return { Icon: CheckSquare, tone: 'text-brand bg-brand/10' }

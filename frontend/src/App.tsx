@@ -14,6 +14,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Settings from './pages/Settings'
+import Tasks from './pages/Tasks'
 import Signup from './pages/Signup'
 
 // Chart pages pull in Recharts (large), so they load only when visited.
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="approvals" element={<Approvals />} />
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />
+          <Route path="tasks" element={<Tasks />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<ComingSoon title="Page not found" />} />
         </Route>
