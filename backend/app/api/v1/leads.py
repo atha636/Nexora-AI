@@ -6,7 +6,7 @@ from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_auth_context, log_activity, require_role
-from app.db.models import ActivityLog, Lead, OrganizationMember, Profile
+from app.db.models import ActivityLog, Lead, OrganizationMember, Profile, Task
 from app.db.session import get_db, get_session_factory
 from app.schemas.lead import (
     ActivityOut,
@@ -166,6 +166,7 @@ def bulk_delete(
         select(Lead.id).where(Lead.id.in_(body.ids), Lead.organization_id == ctx.organization_id)
     ).all()
     if ids:
+        db.execute(delete(Task).where(Task.lead_id.in_(ids)))  # explicit, so SQLite behaves like Postgres
         db.execute(delete(Lead).where(Lead.id.in_(ids)))
         log_activity(db, ctx, entity_type="lead", action="lead.bulk_deleted", details={"count": len(ids)})
         db.commit()
@@ -256,6 +257,7 @@ def delete_lead(
         action="lead.deleted",
         details={"name": lead.name},
     )
+    db.execute(delete(Task).where(Task.lead_id == lead.id))
     db.delete(lead)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

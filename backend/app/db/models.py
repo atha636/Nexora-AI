@@ -426,6 +426,7 @@ class WorkflowExecution(Base):
 NOTIFICATION_KINDS = (
     "approval.requested", "approval.approved", "approval.rejected", "approval.failed",
     "workflow.completed", "workflow.failed", "document.ready", "document.failed",
+    "task.due", "task.assigned",
 )
 
 
@@ -447,3 +448,32 @@ class Notification(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+TASK_STATUSES = ("open", "done")
+
+
+class Task(Base):
+    """A follow-up to do ("call back Priya on Friday"), optionally tied to a lead and a person."""
+
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(_in("status", TASK_STATUSES), name="ck_task_status"),
+        Index("ix_tasks_org_status_due", "organization_id", "status", "due_at"),
+        Index("ix_tasks_assignee", "assigned_to", "status"),
+        Index("ix_tasks_lead", "lead_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("leads.id", ondelete="CASCADE"), nullable=True)
+    title: Mapped[str] = mapped_column(String(200))
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(10), default="open")
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # one reminder per due date
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
