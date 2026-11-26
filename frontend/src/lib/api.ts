@@ -36,6 +36,8 @@ import type {
   TaskSummary,
   TeamMember,
   User,
+  SavedView,
+  ViewFilters,
 } from './types'
 
 const TOKEN_KEY = 'nexora_token'
@@ -175,6 +177,13 @@ export const leadsApi = {
   bulkDelete: async (ids: string[]) => (await api.post<{ deleted: number }>('/leads/bulk-delete', { ids })).data,
   bulkUpdate: async (ids: string[], changes: { status?: LeadStatus; priority?: LeadPriority }) =>
     (await api.post<{ updated: number }>('/leads/bulk-update', { ids, ...changes })).data,
+}
+
+export const viewsApi = {
+  list: async () => (await api.get<SavedView[]>('/views')).data,
+  create: async (body: { name: string; filters: ViewFilters; shared: boolean }) =>
+    (await api.post<SavedView>('/views', body)).data,
+  remove: async (id: string) => api.delete(`/views/${id}`),
 }
 
 // ---------- dashboard & analytics ----------

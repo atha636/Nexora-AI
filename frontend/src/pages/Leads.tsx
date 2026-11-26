@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { PriorityBadge, StatusBadge } from '../components/leads/Badges'
 import LeadBoard from '../components/leads/LeadBoard'
 import LeadForm from '../components/leads/LeadForm'
+import SavedViews from '../components/leads/SavedViews'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
 import { inputClass } from '../components/ui/Field'
@@ -149,11 +150,16 @@ export default function Leads() {
   const total = leads.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const allSelected = items.length > 0 && items.every((l) => selected.has(l.id))
-  const hasFilters = !!(query.q || query.city || query.priority || query.status)
+  const hasFilters = !!(query.q || query.city || query.priority || query.status || query.stale_days || query.assigned || query.created_days)
 
   const setFilter = (patch: Partial<LeadQuery>) => {
     setSelected(new Set())
     setQuery((q) => ({ ...q, ...patch, page: 1 }))
+  }
+  // Chips and saved views change several filters at once; the search box must follow when `q` changes.
+  const applyFilters = (patch: Partial<LeadQuery>) => {
+    if ('q' in patch) setSearch(patch.q ?? '')
+    setFilter(patch)
   }
   const toggleSort = (key: string) =>
     setQuery((q) => ({ ...q, sort: key, order: q.sort === key && q.order === 'asc' ? 'desc' : 'asc', page: 1 }))
@@ -239,6 +245,9 @@ export default function Leads() {
               </option>
             ))}
           </select>
+        </div>
+        <div className="mt-3 border-t border-line pt-3">
+          <SavedViews query={query} onChange={applyFilters} />
         </div>
       </Card>
 

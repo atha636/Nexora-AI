@@ -63,10 +63,35 @@ export interface LeadQuery {
   city?: string
   priority?: LeadPriority | ''
   status?: LeadStatus | ''
+  stale_days?: number
+  assigned?: 'me' | 'none'
+  created_days?: number
   sort: string
   order: 'asc' | 'desc'
   page: number
   page_size: number
+}
+
+/** The filters a saved view remembers (the server accepts only these keys). */
+export interface ViewFilters {
+  q?: string
+  city?: string
+  priority?: LeadPriority
+  status?: LeadStatus
+  stale_days?: number
+  assigned?: 'me' | 'none'
+  created_days?: number
+  sort?: string
+  order?: 'asc' | 'desc'
+}
+
+export interface SavedView {
+  id: string
+  name: string
+  filters: ViewFilters
+  shared: boolean
+  mine: boolean
+  created_at: string
 }
 
 export interface ActivityEvent {
