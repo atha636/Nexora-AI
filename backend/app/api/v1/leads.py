@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
@@ -6,7 +7,7 @@ from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, get_auth_context, log_activity, require_role
-from app.db.models import ActivityLog, Lead, OrganizationMember, Profile, Task
+from app.db.models import ActivityLog, Lead, OrganizationMember, Profile, Task, utcnow
 from app.db.session import get_db, get_session_factory
 from app.schemas.lead import (
     ActivityOut,
@@ -73,6 +74,9 @@ def list_leads(
     city: str | None = Query(None, max_length=80),
     priority: LeadPriority | None = None,
     status_: LeadStatus | None = Query(None, alias="status"),
+    stale_days: int | None = Query(None, ge=1, le=365, description="Not contacted for N days (or never)"),
+    assigned: Literal["me", "none"] | None = Query(None, description="Mine, or unassigned"),
+    created_days: int | None = Query(None, ge=1, le=365, description="Created in the last N days"),
     sort: Literal["name", "city", "status", "priority", "created_at", "last_contacted_at"] = "created_at",
     order: Literal["asc", "desc"] = "desc",
     page: int = Query(1, ge=1),
@@ -97,6 +101,15 @@ def list_leads(
         conditions.append(Lead.priority == priority)
     if status_:
         conditions.append(Lead.status == status_)
+    if stale_days:
+        cutoff = utcnow() - timedelta(days=stale_days)
+        conditions.append(or_(Lead.last_contacted_at.is_(None), Lead.last_contacted_at < cutoff))
+    if assigned == "me":
+        conditions.append(Lead.assigned_to == ctx.user.id)
+    elif assigned == "none":
+        conditions.append(Lead.assigned_to.is_(None))
+    if created_days:
+        conditions.append(Lead.created_at >= utcnow() - timedelta(days=created_days))
 
     total = db.scalar(select(func.count()).select_from(Lead).where(*conditions)) or 0
 

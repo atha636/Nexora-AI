@@ -477,3 +477,18 @@ class Task(Base):
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # one reminder per due date
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class SavedView(Base):
+    """A named set of lead filters ("Hot leads in Delhi"). Personal, or shared with the whole team by a manager."""
+
+    __tablename__ = "saved_views"
+    __table_args__ = (Index("ix_saved_views_org_owner", "organization_id", "owner_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), nullable=True)
+    name: Mapped[str] = mapped_column(String(60))
+    filters: Mapped[dict] = mapped_column(JSON, default=dict)
+    shared: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
