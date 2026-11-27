@@ -427,6 +427,21 @@ export interface BriefingItem {
   href: string
 }
 
+export interface BriefingSummary {
+  summary: string
+  ai: boolean // false = the plain, no-AI summary was used
+}
+
+export interface LeadAnswer {
+  answer: string
+  model: string
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export type Block =
   | {
       type: 'workflow_status'

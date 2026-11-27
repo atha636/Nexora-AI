@@ -37,6 +37,9 @@ import type {
   TeamMember,
   User,
   SavedView,
+  BriefingSummary,
+  ChatTurn,
+  LeadAnswer,
   ViewFilters,
 } from './types'
 
@@ -169,6 +172,8 @@ export const leadsApi = {
     return (await api.get<LeadList>('/leads', { params })).data
   },
   cities: async () => (await api.get<string[]>('/leads/cities')).data,
+  ask: async (id: string, question: string, history: ChatTurn[]) =>
+    (await api.post<LeadAnswer>(`/leads/${id}/ask`, { question, history }, { timeout: 60_000 })).data,
   get: async (id: string) => (await api.get<Lead>(`/leads/${id}`)).data,
   create: async (body: LeadInput) => (await api.post<Lead>('/leads', body)).data,
   update: async (id: string, body: Partial<LeadInput>) => (await api.patch<Lead>(`/leads/${id}`, body)).data,
@@ -189,6 +194,7 @@ export const viewsApi = {
 // ---------- dashboard & analytics ----------
 export const analyticsApi = {
   dashboard: async () => (await api.get<DashboardOverview>('/dashboard/overview')).data,
+  briefingSummary: async () => (await api.post<BriefingSummary>('/dashboard/briefing/summary', {}, { timeout: 60_000 })).data,
   briefing: async () => (await api.get<{ items: BriefingItem[] }>('/dashboard/briefing')).data,
   revenue: async (months: number) => (await api.get<RevenueAnalytics>('/analytics/revenue', { params: { months } })).data,
   leads: async (months: number) => (await api.get<LeadAnalytics>('/analytics/leads', { params: { months } })).data,

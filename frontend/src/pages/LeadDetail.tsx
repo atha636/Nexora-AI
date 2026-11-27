@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PriorityBadge, StatusBadge } from '../components/leads/Badges'
 import GenerateEmailModal from '../components/emails/GenerateEmailModal'
 import LeadForm from '../components/leads/LeadForm'
+import LeadChat from '../components/leads/LeadChat'
 import LeadTasks from '../components/tasks/LeadTasks'
 import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
@@ -154,6 +155,7 @@ export default function LeadDetail() {
           </dl>
         </Card>
         <LeadTasks leadId={l.id} />
+        <LeadChat leadId={l.id} leadName={l.name} />
         </div>
 
         <Card className="h-fit p-5 lg:col-span-2">
