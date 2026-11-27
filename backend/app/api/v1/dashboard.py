@@ -10,7 +10,10 @@ from app.schemas.analytics import (
     RevenueAnalytics,
 )
 from app.services import analytics as svc
-from app.services.briefing import build_briefing
+from app.core.ratelimit import rate_limit
+from app.schemas.lead_chat import BriefingSummaryRequest
+from app.services.briefing import ai_summary, build_briefing
+from app.services.llm import LLMClient, get_llm
 
 # Both routers are read-only and open to every member of the organization.
 dashboard_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -38,6 +41,17 @@ def dashboard_overview(
 def dashboard_briefing(ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> dict:
     """What needs attention today. Built from the database, not from an AI model."""
     return build_briefing(db, ctx)
+
+
+@dashboard_router.post("/briefing/summary", dependencies=[Depends(rate_limit("briefing_summary", 10))])
+def dashboard_briefing_summary(
+    body: BriefingSummaryRequest,
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+    llm: LLMClient = Depends(get_llm),
+) -> dict:
+    """A few sentences phrased by the AI from today's figures. Falls back to a plain summary if the AI is unavailable."""
+    return ai_summary(build_briefing(db, ctx)["items"], llm, body.language)
 
 
 @analytics_router.get("/overview", response_model=AnalyticsOverview)

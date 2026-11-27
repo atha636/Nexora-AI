@@ -20,7 +20,10 @@ from app.schemas.lead import (
     LeadStatus,
     LeadUpdate,
 )
-from app.services.llm import ChatLLM, get_chat_llm
+from app.core.ratelimit import rate_limit
+from app.schemas.lead_chat import LeadAnswer, LeadAsk
+from app.services.lead_chat import ask_about_lead
+from app.services.llm import ChatLLM, LLMClient, LLMError, get_chat_llm, get_llm
 from app.services.workflows import run_in_background, trigger_lead_created
 
 router = APIRouter(prefix="/leads", tags=["leads"])
@@ -274,6 +277,23 @@ def delete_lead(
     db.delete(lead)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{lead_id}/ask", response_model=LeadAnswer, dependencies=[Depends(rate_limit("lead_ask", 20))])
+def ask_lead(
+    lead_id: uuid.UUID,
+    body: LeadAsk,
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+    llm: LLMClient = Depends(get_llm),
+) -> LeadAnswer:
+    """Ask a question about this one lead. Read-only: it can explain, never change anything."""
+    lead = _get_lead(db, ctx, lead_id)  # another organization's lead is a 404 here too
+    try:
+        answer = ask_about_lead(db, ctx, lead, body, llm)
+    except LLMError as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from None
+    return LeadAnswer(answer=answer, model=llm.model)
 
 
 @router.get("/{lead_id}/activity", response_model=list[ActivityOut])
