@@ -349,3 +349,26 @@ tbody tr {
     transform: none;
   }
 }
+
+/* Printing (Reports → "Download PDF"): drop the app chrome, let the page flow across sheets, keep blocks together. */
+@media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .nx-page {
+    animation: none !important;
+  }
+  .nx-avoid-break {
+    break-inside: avoid;
+  }
+  [data-print-hide] {
+    display: none !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}

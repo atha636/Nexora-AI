@@ -5,6 +5,7 @@ import ProductTour from './ProductTour'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import {
   BarChart3,
+  FileBarChart,
   BookOpen,
   CheckSquare,
   GitBranch,
@@ -34,6 +35,7 @@ const nav = [
   { to: '/tasks', label: 'Tasks', icon: ListChecks },
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/reports', label: 'Reports', icon: FileBarChart },
   { to: '/workflows', label: 'Workflows', icon: GitBranch },
   { to: '/emails', label: 'Emails', icon: Mail },
   { to: '/approvals', label: 'Approvals', icon: CheckSquare },
@@ -105,8 +107,8 @@ export default function AppLayout() {
   }, [])
 
   return (
-    <div className="flex h-full">
-      <aside className="hidden w-64 shrink-0 border-r border-line bg-navy-900 lg:block">
+    <div className="flex h-full print:block print:h-auto">
+      <aside className="hidden w-64 shrink-0 border-r border-line bg-navy-900 lg:block print:!hidden">
         <Sidebar />
       </aside>
 
@@ -131,7 +133,7 @@ export default function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-line bg-navy-900/60 px-4 backdrop-blur sm:px-6">
+        <header className="print:hidden flex h-16 shrink-0 items-center justify-between border-b border-line bg-navy-900/60 px-4 backdrop-blur sm:px-6">
           <button
             aria-label="Open menu"
             className="rounded-md p-2 text-slate-300 hover:bg-navy-700 lg:hidden"
@@ -181,7 +183,7 @@ export default function AppLayout() {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 print:overflow-visible print:p-0">
           <div key={location.pathname} className="nx-page">
             <Outlet />
           </div>

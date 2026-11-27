@@ -427,6 +427,23 @@ export interface BriefingItem {
   href: string
 }
 
+export interface ReportSummary {
+  organization: string
+  months: number
+  period_start: string
+  period_end: string
+  generated_at: string
+  period: { new_leads: number; won_of_new: number; conversion_rate: number; revenue: number; deals: number; average_deal: number }
+  tasks: { open: number; overdue: number; completed_in_period: number }
+  monthly_revenue: MonthRevenue[]
+  acquisition: MonthLeads[]
+  revenue_by_city: LabelRevenue[]
+  by_salesperson: SalesPerson[]
+  leads_by_status: LabelCount[]
+  leads_by_source: LabelCount[]
+  leads_by_city: LabelCount[]
+}
+
 export interface BriefingSummary {
   summary: string
   ai: boolean // false = the plain, no-AI summary was used

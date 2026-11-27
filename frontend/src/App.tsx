@@ -14,6 +14,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Settings from './pages/Settings'
+import Reports from './pages/Reports'
 import Tasks from './pages/Tasks'
 import Signup from './pages/Signup'
 
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="leads" element={<Leads />} />
           <Route path="leads/:id" element={<LeadDetail />} />
           <Route path="tasks" element={<Tasks />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<ComingSoon title="Page not found" />} />
         </Route>

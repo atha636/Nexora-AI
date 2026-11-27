@@ -37,6 +37,7 @@ import type {
   TeamMember,
   User,
   SavedView,
+  ReportSummary,
   BriefingSummary,
   ChatTurn,
   LeadAnswer,
@@ -182,6 +183,16 @@ export const leadsApi = {
   bulkDelete: async (ids: string[]) => (await api.post<{ deleted: number }>('/leads/bulk-delete', { ids })).data,
   bulkUpdate: async (ids: string[], changes: { status?: LeadStatus; priority?: LeadPriority }) =>
     (await api.post<{ updated: number }>('/leads/bulk-update', { ids, ...changes })).data,
+}
+
+export const reportsApi = {
+  summary: async (months: number) => (await api.get<ReportSummary>('/reports/summary', { params: { months } })).data,
+  /** CSV exports need the login header, so they are fetched here and saved by the browser. */
+  exportCsv: async (kind: 'leads' | 'sales', months: number) => {
+    const res = await api.get<Blob>(`/reports/${kind}.csv`, { params: kind === 'sales' ? { months } : {}, responseType: 'blob' })
+    const name = /filename="([^"]+)"/.exec(String(res.headers['content-disposition'] ?? ''))?.[1] ?? `nexora-${kind}.csv`
+    return { blob: res.data, name }
+  },
 }
 
 export const viewsApi = {
