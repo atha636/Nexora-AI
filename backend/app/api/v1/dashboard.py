@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -38,9 +40,13 @@ def dashboard_overview(
 
 
 @dashboard_router.get("/briefing")
-def dashboard_briefing(ctx: AuthContext = Depends(get_auth_context), db: Session = Depends(get_db)) -> dict:
+def dashboard_briefing(
+    language: Literal["en", "hi"] = Query("en"),
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+) -> dict:
     """What needs attention today. Built from the database, not from an AI model."""
-    return build_briefing(db, ctx)
+    return build_briefing(db, ctx, language)
 
 
 @dashboard_router.post("/briefing/summary", dependencies=[Depends(rate_limit("briefing_summary", 10))])
@@ -51,7 +57,7 @@ def dashboard_briefing_summary(
     llm: LLMClient = Depends(get_llm),
 ) -> dict:
     """A few sentences phrased by the AI from today's figures. Falls back to a plain summary if the AI is unavailable."""
-    return ai_summary(build_briefing(db, ctx)["items"], llm, body.language)
+    return ai_summary(build_briefing(db, ctx, body.language)["items"], llm, body.language)
 
 
 @analytics_router.get("/overview", response_model=AnalyticsOverview)

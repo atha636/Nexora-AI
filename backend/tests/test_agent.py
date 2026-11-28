@@ -559,3 +559,13 @@ def test_groq_chat_errors_are_safe(response, expect):
     with pytest.raises(LLMError) as e:
         groq(lambda req: response).chat([{"role": "user", "content": "hi"}], None, max_tokens=5)
     assert expect in str(e.value) and "gsk_test_key" not in str(e.value)
+
+
+def test_language_hindi_is_added_to_the_system_prompt_only_when_asked(client):
+    h = signup(client)
+    fake = use(say("ठीक है।"), say("Fine."), say("Fine."))
+    assert chat(client, h, language="hi").status_code == 200
+    assert "Hindi (Devanagari" in fake.calls[0][0][0]["content"]
+    assert chat(client, h).status_code == 200
+    assert "Hindi" not in fake.calls[1][0][0]["content"]  # English stays the default
+    assert chat(client, h, language="fr").status_code == 422

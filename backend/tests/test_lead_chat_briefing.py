@@ -101,3 +101,17 @@ def test_briefing_summary_ai_and_fallback(client):
     assert down["ai"] is False and "high-priority leads to contact: 1" in down["summary"]
     assert client.post("/api/v1/dashboard/briefing/summary", headers=h, json={"language": "xx"}).status_code == 422
     assert client.post("/api/v1/dashboard/briefing/summary", json={}).status_code in (401, 403)
+
+
+def test_briefing_in_hindi(client):
+    h = signup(client)
+    mk(client, h, priority="high")
+    en = {i["key"]: i for i in client.get("/api/v1/dashboard/briefing", headers=h).json()["items"]}
+    hi = {i["key"]: i for i in client.get("/api/v1/dashboard/briefing?language=hi", headers=h).json()["items"]}
+    assert en.keys() == hi.keys()
+    assert hi["my_tasks"]["title"] == "आपके अतिदेय कार्य" and hi["quiet_high_priority"]["value"] == en["quiet_high_priority"]["value"]  # figures never change
+    assert hi["quiet_high_priority"]["href"] == en["quiet_high_priority"]["href"]
+    assert client.get("/api/v1/dashboard/briefing?language=fr", headers=h).status_code == 422
+    use(FakeLLM(fail=True))
+    down = client.post("/api/v1/dashboard/briefing/summary", headers=h, json={"language": "hi"}).json()
+    assert down["ai"] is False and "ध्यान देने योग्य" in down["summary"]

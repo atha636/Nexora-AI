@@ -46,7 +46,7 @@ def ask(
     embedder: Embedder = Depends(get_embedder),
 ) -> AnalysisResponse:
     try:
-        out = run_analysis(db, ctx, llm, embedder, body.question)
+        out = run_analysis(db, ctx, llm, embedder, body.question, body.language)
     except LLMError as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from None
     except AgentFailure as e:

@@ -40,7 +40,7 @@ def chat(
     """Sends one message to the AI agent. It may call tools (search leads, read documents, ...)
     before answering. Every run and tool call is recorded and can be inspected afterwards."""
     try:
-        out = run_chat(db, ctx, llm, embedder, body.message, body.conversation_id)
+        out = run_chat(db, ctx, llm, embedder, body.message, body.conversation_id, body.language)
     except ConversationNotFound:
         raise _not_found() from None
     except LLMError as e:  # includes "not configured"; the message is safe to show

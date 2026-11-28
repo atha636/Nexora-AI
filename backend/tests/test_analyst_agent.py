@@ -105,3 +105,13 @@ def test_ask_requires_llm_config_message(client):
     res = client.post(ASK, headers=h, json={"question": "revenue last month"})
     assert res.status_code == 503
     assert "GROQ_API_KEY" in res.json()["detail"]
+
+
+def test_ask_language_hindi(client):
+    h = signup(client)
+    fake = use(say("कुछ नहीं।"), say("Nothing."))
+    assert client.post(ASK, headers=h, json={"question": "revenue last month?", "language": "hi"}).status_code == 200
+    assert "Hindi (Devanagari" in fake.calls[0][0][0]["content"]
+    client.post(ASK, headers=h, json={"question": "revenue last month?"})
+    assert "Hindi" not in fake.calls[1][0][0]["content"]
+    assert client.post(ASK, headers=h, json={"question": "revenue last month?", "language": "xx"}).status_code == 422
