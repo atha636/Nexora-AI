@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 class ChatRequest(BaseModel):
     message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
     conversation_id: uuid.UUID | None = None  # omit to start a new conversation
+    language: Literal["en", "hi"] = "en"  # the language the assistant replies in
 
 
 class MessageOut(BaseModel):

@@ -160,6 +160,7 @@ def run_chat(
     embedder: Embedder,
     text: str,
     conversation_id: uuid.UUID | None,
+    language: str = "en",
 ) -> ChatOutcome:
     convo = get_conversation(db, ctx, conversation_id) if conversation_id else None
     history = _history(db, convo.id) if convo else []
@@ -178,7 +179,7 @@ def run_chat(
         llm=llm,
         tool_ctx=ToolContext(db=db, auth=ctx, embedder=embedder, llm=llm),
         tools=TOOLS,
-        system_prompt=build_system_prompt(ctx.user.full_name, ctx.role, _org_name(db, ctx)),
+        system_prompt=build_system_prompt(ctx.user.full_name, ctx.role, _org_name(db, ctx), language),
     )
     started = time.perf_counter()
     try:
@@ -247,7 +248,7 @@ class AnalysisOutcome:
     records: list[ToolRecord]
 
 
-def run_analysis(db: Session, ctx: AuthContext, llm: ChatLLM, embedder: Embedder, question: str) -> AnalysisOutcome:
+def run_analysis(db: Session, ctx: AuthContext, llm: ChatLLM, embedder: Embedder, question: str, language: str = "en") -> AnalysisOutcome:
     """Answers one analytics question. Same graph and guards as the chat agent, but the only tool
     is query_analytics (read-only) and nothing is stored in a conversation."""
     run = AgentRun(
@@ -263,7 +264,7 @@ def run_analysis(db: Session, ctx: AuthContext, llm: ChatLLM, embedder: Embedder
         llm=llm,
         tool_ctx=ToolContext(db=db, auth=ctx, embedder=embedder),
         tools={"query_analytics": TOOLS["query_analytics"]},
-        system_prompt=build_analyst_prompt(ctx.user.full_name, ctx.role, _org_name(db, ctx)),
+        system_prompt=build_analyst_prompt(ctx.user.full_name, ctx.role, _org_name(db, ctx), language),
     )
     started = time.perf_counter()
     try:
