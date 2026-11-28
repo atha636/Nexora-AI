@@ -2,6 +2,7 @@ import { Logo } from '../ui/Logo'
 import CommandPalette from './CommandPalette'
 import NotificationBell from './NotificationBell'
 import ProductTour from './ProductTour'
+import { LanguageSwitcher } from '../ui/LanguageSwitcher'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import {
   BarChart3,
@@ -25,32 +26,34 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { approvalsApi, tasksApi } from '../../lib/api'
+import { useT } from '../../i18n'
 import { useAuth } from '../../lib/auth'
 import { ROLE_RANK } from '../../lib/types'
 
 const nav = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/assistant', label: 'AI Assistant', icon: MessageSquare },
-  { to: '/leads', label: 'CRM', icon: Users },
-  { to: '/tasks', label: 'Tasks', icon: ListChecks },
-  { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/reports', label: 'Reports', icon: FileBarChart },
-  { to: '/workflows', label: 'Workflows', icon: GitBranch },
-  { to: '/emails', label: 'Emails', icon: Mail },
-  { to: '/approvals', label: 'Approvals', icon: CheckSquare },
-  { to: '/observability', label: 'Observability', icon: Activity, minRole: 'manager' as const },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/dashboard', label: 'nav.dashboard' as const, icon: LayoutDashboard },
+  { to: '/assistant', label: 'nav.assistant' as const, icon: MessageSquare },
+  { to: '/leads', label: 'nav.crm' as const, icon: Users },
+  { to: '/tasks', label: 'nav.tasks' as const, icon: ListChecks },
+  { to: '/knowledge', label: 'nav.knowledge' as const, icon: BookOpen },
+  { to: '/analytics', label: 'nav.analytics' as const, icon: BarChart3 },
+  { to: '/reports', label: 'nav.reports' as const, icon: FileBarChart },
+  { to: '/workflows', label: 'nav.workflows' as const, icon: GitBranch },
+  { to: '/emails', label: 'nav.emails' as const, icon: Mail },
+  { to: '/approvals', label: 'nav.approvals' as const, icon: CheckSquare },
+  { to: '/observability', label: 'nav.observability' as const, icon: Activity, minRole: 'manager' as const },
+  { to: '/settings', label: 'nav.settings' as const, icon: Settings },
 ]
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pending = useQuery({ queryKey: ['approvals', 'pending'], queryFn: () => approvalsApi.list('pending'), refetchInterval: 60_000 })
   const tasks = useQuery({ queryKey: ['tasks-summary'], queryFn: tasksApi.summary, refetchInterval: 60_000 }) // also creates due reminders
   const { user } = useAuth()
+  const { t } = useT()
   const pendingCount = pending.data?.pending ?? 0
-  const taskBadge = tasks.data?.overdue ? { n: tasks.data.overdue, tone: 'bg-red-500/20 text-red-300', word: 'overdue' } : tasks.data?.open ? { n: tasks.data.open, tone: 'bg-navy-700 text-slate-300', word: 'open' } : null
+  const taskBadge = tasks.data?.overdue ? { n: tasks.data.overdue, tone: 'bg-red-500/20 text-red-300', label: t('shell.overdue', { n: tasks.data.overdue }) } : tasks.data?.open ? { n: tasks.data.open, tone: 'bg-navy-700 text-slate-300', label: t('shell.openTasks', { n: tasks.data.open }) } : null
   return (
-    <nav aria-label="Main" className="flex h-full flex-col gap-1 p-4">
+    <nav aria-label={t('shell.main')} className="flex h-full flex-col gap-1 p-4">
       <div className="mb-6 flex items-center gap-2 px-2">
         <Logo size={36} />
         <span className="text-lg font-semibold tracking-tight">Nexora AI</span>
@@ -71,14 +74,14 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           }
         >
           <Icon className="h-4 w-4" aria-hidden />
-          {label}
+          {t(label)}
           {to === '/tasks' && taskBadge && (
-            <span aria-label={`${taskBadge.n} ${taskBadge.word}`} className={`ml-auto rounded-full px-2 text-xs ${taskBadge.tone}`}>
+            <span aria-label={taskBadge.label} className={`ml-auto rounded-full px-2 text-xs ${taskBadge.tone}`}>
               {taskBadge.n}
             </span>
           )}
           {to === '/approvals' && pendingCount > 0 && (
-            <span aria-label={`${pendingCount} pending`} className="ml-auto rounded-full bg-amber-500/20 px-2 text-xs text-amber-300">
+            <span aria-label={t('shell.pending', { n: pendingCount })} className="ml-auto rounded-full bg-amber-500/20 px-2 text-xs text-amber-300">
               {pendingCount}
             </span>
           )}
@@ -92,6 +95,7 @@ export default function AppLayout() {
   const [open, setOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const { user, logout } = useAuth()
+  const { t } = useT()
   const location = useLocation()
 
   // Ctrl+K (Cmd+K on Mac) toggles the command palette from anywhere in the app.
@@ -115,13 +119,13 @@ export default function AppLayout() {
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
           <button
-            aria-label="Close menu"
+            aria-label={t('shell.closeMenu')}
             className="absolute inset-0 bg-black/60"
             onClick={() => setOpen(false)}
           />
           <aside className="relative h-full w-64 border-r border-line bg-navy-900">
             <button
-              aria-label="Close menu"
+              aria-label={t('shell.closeMenu')}
               className="absolute right-3 top-4 rounded-md p-1 text-slate-400 hover:text-white"
               onClick={() => setOpen(false)}
             >
@@ -135,7 +139,7 @@ export default function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="print:hidden flex h-16 shrink-0 items-center justify-between border-b border-line bg-navy-900/60 px-4 backdrop-blur sm:px-6">
           <button
-            aria-label="Open menu"
+            aria-label={t('shell.openMenu')}
             className="rounded-md p-2 text-slate-300 hover:bg-navy-700 lg:hidden"
             onClick={() => setOpen(true)}
           >
@@ -144,21 +148,22 @@ export default function AppLayout() {
           <button
             onClick={() => setPaletteOpen(true)}
             data-tour="search"
-            aria-label="Open command palette"
+            aria-label={t('shell.openPalette')}
             className="hidden items-center gap-2 rounded-lg border border-line bg-navy-950 px-3 py-1.5 text-sm text-slate-500 transition hover:border-slate-500 hover:text-slate-300 sm:flex sm:w-72"
           >
             <Search className="h-4 w-4" aria-hidden />
-            <span>Search or jump to…</span>
+            <span>{t('shell.search')}</span>
             <kbd className="ml-auto rounded border border-line px-1.5 py-0.5 text-[10px]">Ctrl K</kbd>
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3">
             <button
-              aria-label="Open command palette"
+              aria-label={t('shell.openPalette')}
               onClick={() => setPaletteOpen(true)}
               className="rounded-md p-2 text-slate-400 hover:bg-navy-700 hover:text-white sm:hidden"
             >
               <Search className="h-5 w-5" />
             </button>
+            <LanguageSwitcher />
             <ThemeToggle />
             <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">
@@ -169,13 +174,13 @@ export default function AppLayout() {
             </div>
             <div
               aria-hidden
-              className="grid h-8 w-8 place-items-center rounded-full bg-brand text-black text-xs font-semibold"
+              className="hidden h-8 w-8 place-items-center rounded-full bg-brand text-black text-xs font-semibold sm:grid"
             >
               {user?.full_name.charAt(0).toUpperCase()}
             </div>
             <button
-              aria-label="Sign out"
-              title="Sign out"
+              aria-label={t('shell.signOut')}
+              title={t('shell.signOut')}
               onClick={() => logout()}
               className="rounded-md p-2 text-slate-400 hover:bg-navy-700 hover:text-white"
             >

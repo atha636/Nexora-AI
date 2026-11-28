@@ -1,3 +1,4 @@
+import { getLang } from '../i18n/core'
 import axios from 'axios'
 import type {
   AppNotification,
@@ -174,7 +175,7 @@ export const leadsApi = {
   },
   cities: async () => (await api.get<string[]>('/leads/cities')).data,
   ask: async (id: string, question: string, history: ChatTurn[]) =>
-    (await api.post<LeadAnswer>(`/leads/${id}/ask`, { question, history }, { timeout: 60_000 })).data,
+    (await api.post<LeadAnswer>(`/leads/${id}/ask`, { question, history, language: getLang() }, { timeout: 60_000 })).data,
   get: async (id: string) => (await api.get<Lead>(`/leads/${id}`)).data,
   create: async (body: LeadInput) => (await api.post<Lead>('/leads', body)).data,
   update: async (id: string, body: Partial<LeadInput>) => (await api.patch<Lead>(`/leads/${id}`, body)).data,
@@ -205,13 +206,13 @@ export const viewsApi = {
 // ---------- dashboard & analytics ----------
 export const analyticsApi = {
   dashboard: async () => (await api.get<DashboardOverview>('/dashboard/overview')).data,
-  briefingSummary: async () => (await api.post<BriefingSummary>('/dashboard/briefing/summary', {}, { timeout: 60_000 })).data,
-  briefing: async () => (await api.get<{ items: BriefingItem[] }>('/dashboard/briefing')).data,
+  briefingSummary: async () => (await api.post<BriefingSummary>('/dashboard/briefing/summary', { language: getLang() }, { timeout: 60_000 })).data,
+  briefing: async () => (await api.get<{ items: BriefingItem[] }>('/dashboard/briefing', { params: { language: getLang() } })).data,
   revenue: async (months: number) => (await api.get<RevenueAnalytics>('/analytics/revenue', { params: { months } })).data,
   leads: async (months: number) => (await api.get<LeadAnalytics>('/analytics/leads', { params: { months } })).data,
   // The AI may run several queries, so allow more time than the default.
   ask: async (question: string) =>
-    (await api.post<AnalyticsAnswer>('/analytics/ask', { question }, { timeout: 120_000 })).data,
+    (await api.post<AnalyticsAnswer>('/analytics/ask', { question, language: getLang() }, { timeout: 120_000 })).data,
 }
 
 // ---------- knowledge base ----------
@@ -239,7 +240,7 @@ export const agentApi = {
     (
       await api.post<ChatResponse>(
         '/agent/chat',
-        { message, conversation_id: conversationId },
+        { message, conversation_id: conversationId, language: getLang() },
         { timeout: 120_000 },
       )
     ).data,

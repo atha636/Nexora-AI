@@ -6,6 +6,8 @@ import TaskItem from '../components/tasks/TaskItem'
 import { Card, Skeleton } from '../components/ui/Card'
 import { useTaskActions } from '../hooks/useTaskActions'
 import { errorMessage, tasksApi } from '../lib/api'
+import { useT } from '../i18n'
+import type { Key } from '../i18n/en'
 import { useAuth } from '../lib/auth'
 import { groupTasks } from '../lib/tasks'
 
@@ -14,6 +16,7 @@ const pill = (on: boolean) =>
 
 export default function Tasks() {
   const { can } = useAuth()
+  const { t } = useT()
   const [scope, setScope] = useState<'mine' | 'all'>('mine')
   const [state, setState] = useState<'open' | 'done'>('open')
   const { toggle, remove, refresh } = useTaskActions()
@@ -24,8 +27,8 @@ export default function Tasks() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-        <p className="mt-1 text-sm text-slate-400">Follow-ups you need to do. Overdue ones are reminded in your notifications.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('tasks.title')}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t('tasks.sub')}</p>
       </div>
 
       <Card className="p-5">
@@ -34,21 +37,21 @@ export default function Tasks() {
 
       <div className="flex flex-wrap items-center gap-2">
         {can('manager') && (
-          <div role="group" aria-label="Whose tasks" className="mr-2 flex gap-2">
+          <div role="group" aria-label={t('tasks.whose')} className="mr-2 flex gap-2">
             <button aria-pressed={scope === 'mine'} className={pill(scope === 'mine')} onClick={() => setScope('mine')}>
-              My tasks
+              {t('tasks.mine')}
             </button>
             <button aria-pressed={scope === 'all'} className={pill(scope === 'all')} onClick={() => setScope('all')}>
-              Everyone
+              {t('tasks.everyone')}
             </button>
           </div>
         )}
-        <div role="group" aria-label="Status" className="flex gap-2">
+        <div role="group" aria-label={t('tasks.status')} className="flex gap-2">
           <button aria-pressed={state === 'open'} className={pill(state === 'open')} onClick={() => setState('open')}>
-            Open
+            {t('tasks.open')}
           </button>
           <button aria-pressed={state === 'done'} className={pill(state === 'done')} onClick={() => setState('done')}>
-            Done
+            {t('tasks.done')}
           </button>
         </div>
       </div>
@@ -60,24 +63,24 @@ export default function Tasks() {
         </div>
       ) : tasks.isError ? (
         <Card className="p-8 text-center text-sm text-red-400" role="alert">
-          {errorMessage(tasks.error, 'Could not load tasks.')}{' '}
+          {errorMessage(tasks.error, t('tasks.loadError'))}{' '}
           <button className="underline" onClick={() => tasks.refetch()}>
-            Retry
+            {t('dash.retry')}
           </button>
         </Card>
       ) : items.length === 0 ? (
         <Card className="grid place-items-center gap-2 p-10 text-center">
           {state === 'open' ? <ListTodo className="h-8 w-8 text-slate-500" aria-hidden /> : <CheckCircle2 className="h-8 w-8 text-slate-500" aria-hidden />}
-          <p className="text-sm font-medium">{state === 'open' ? 'You’re all caught up' : 'Nothing finished yet'}</p>
+          <p className="text-sm font-medium">{state === 'open' ? t('tasks.caughtUp') : t('tasks.nothingDone')}</p>
           <p className="max-w-sm text-sm text-slate-500">
-            {state === 'open' ? 'Add a follow-up above, or from any lead’s page.' : 'Completed tasks show up here.'}
+            {state === 'open' ? t('tasks.addHint') : t('tasks.doneHint')}
           </p>
         </Card>
       ) : state === 'open' ? (
         groupTasks(items).map((g) => (
-          <section key={g.key} aria-label={g.title}>
+          <section key={g.key} aria-label={t(`tasks.group.${g.key}` as Key)}>
             <h2 className={`mb-1 px-1 text-xs font-semibold uppercase tracking-wide ${g.key === 'overdue' ? 'text-red-300' : 'text-slate-500'}`}>
-              {g.title} · {g.items.length}
+              {t(`tasks.group.${g.key}` as Key)} · {g.items.length}
             </h2>
             <Card className="px-4">
               <ul className="divide-y divide-line">

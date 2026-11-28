@@ -22,34 +22,37 @@ import { Card, Skeleton } from '../components/ui/Card'
 import { Sparkline } from '../components/ui/Sparkline'
 import { analyticsApi, errorMessage, fetchHealth } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useT } from '../i18n'
+import type { Key } from '../i18n/en'
 import { formatCurrency, formatNumber, timeAgo } from '../lib/format'
 import type { DashboardOverview, Kpis } from '../lib/types'
 
 interface KpiCard {
-  label: string
+  label: Key
   icon: LucideIcon
   num: (k: Kpis) => number
   fmt: (n: number) => string
-  hint?: (k: Kpis) => string
+  hint?: (k: Kpis, t: ReturnType<typeof useT>['t']) => string
   trend?: (d: DashboardOverview) => number[]
 }
 
 const kpiCards: KpiCard[] = [
   {
-    label: 'Total leads', icon: Users, num: (k) => k.total_leads, fmt: (n) => formatNumber(Math.round(n)), hint: (k) => `${k.won_leads} won`,
+    label: 'dash.totalLeads', icon: Users, num: (k) => k.total_leads, fmt: (n) => formatNumber(Math.round(n)), hint: (k, t) => t('dash.hintWon', { n: k.won_leads }),
     trend: (d) => d.lead_acquisition.reduce<number[]>((acc, m) => [...acc, (acc.at(-1) ?? 0) + m.created], []),
   },
-  { label: 'Total revenue', icon: DollarSign, num: (k) => k.total_revenue, fmt: (n) => formatCurrency(Math.round(n)), trend: (d) => d.monthly_revenue.map((m) => m.revenue) },
+  { label: 'dash.totalRevenue', icon: DollarSign, num: (k) => k.total_revenue, fmt: (n) => formatCurrency(Math.round(n)), trend: (d) => d.monthly_revenue.map((m) => m.revenue) },
   {
-    label: 'Conversion rate', icon: Target, num: (k) => k.conversion_rate, fmt: (n) => `${n.toFixed(1)}%`, hint: (k) => `${k.won_leads} of ${k.total_leads} leads`,
+    label: 'dash.conversionRate', icon: Target, num: (k) => k.conversion_rate, fmt: (n) => `${n.toFixed(1)}%`, hint: (k, t) => t('dash.hintOfLeads', { won: k.won_leads, total: k.total_leads }),
     trend: (d) => d.lead_acquisition.map((m) => m.conversion_rate),
   },
-  { label: 'Active workflows', icon: GitBranch, num: (k) => k.active_workflows, fmt: (n) => formatNumber(Math.round(n)), hint: () => 'Enabled automations' },
-  { label: 'Pending approvals', icon: CheckSquare, num: (k) => k.pending_approvals, fmt: (n) => formatNumber(Math.round(n)), hint: () => 'Waiting for a decision' },
-  { label: 'Documents indexed', icon: FileText, num: (k) => k.documents_indexed, fmt: (n) => formatNumber(Math.round(n)), hint: () => 'Ready for search' },
+  { label: 'dash.activeWorkflows', icon: GitBranch, num: (k) => k.active_workflows, fmt: (n) => formatNumber(Math.round(n)), hint: (_k, t) => t('dash.hintEnabled') },
+  { label: 'dash.pendingApprovals', icon: CheckSquare, num: (k) => k.pending_approvals, fmt: (n) => formatNumber(Math.round(n)), hint: (_k, t) => t('dash.hintWaiting') },
+  { label: 'dash.documentsIndexed', icon: FileText, num: (k) => k.documents_indexed, fmt: (n) => formatNumber(Math.round(n)), hint: (_k, t) => t('dash.hintReady') },
 ]
 
 function ApiStatus() {
+  const { t } = useT()
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['health'],
     queryFn: fetchHealth,
@@ -59,13 +62,13 @@ function ApiStatus() {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-200">System status</h2>
+        <h2 className="text-sm font-semibold text-slate-200">{t('dash.statusTitle')}</h2>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
           className="rounded-md px-2 py-1 text-xs text-electric hover:bg-navy-700 disabled:opacity-50"
         >
-          {isFetching ? 'Checking…' : 'Recheck'}
+          {isFetching ? t('dash.checking') : t('dash.recheck')}
         </button>
       </div>
       {isLoading ? (
@@ -73,7 +76,7 @@ function ApiStatus() {
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-4 w-56" />
           <p className="pt-1 text-xs text-slate-500">
-            Connecting to the API (the free-tier server may take up to a minute to wake up)…
+            {t('dash.connecting')}
           </p>
         </div>
       ) : isError || !data ? (
@@ -83,15 +86,15 @@ function ApiStatus() {
         </p>
       ) : (
         <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
-          <dt className="text-slate-400">API</dt>
+          <dt className="text-slate-400">{t('dash.api')}</dt>
           <dd className={data.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'}>
-            {data.status === 'ok' ? 'Healthy' : 'Degraded'}
+            {data.status === 'ok' ? t('dash.healthy') : t('dash.degraded')}
           </dd>
-          <dt className="text-slate-400">Database</dt>
+          <dt className="text-slate-400">{t('dash.database')}</dt>
           <dd className={data.database === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
-            {data.database === 'ok' ? 'Connected' : 'Unavailable'}
+            {data.database === 'ok' ? t('dash.connected') : t('dash.unavailable')}
           </dd>
-          <dt className="text-slate-400">Version</dt>
+          <dt className="text-slate-400">{t('dash.version')}</dt>
           <dd>{data.version}</dd>
         </dl>
       )}
@@ -101,6 +104,7 @@ function ApiStatus() {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { t } = useT()
   const overview = useQuery({ queryKey: ['dashboard'], queryFn: analyticsApi.dashboard })
   const d = overview.data
   const state = { isLoading: overview.isLoading, error: overview.error, onRetry: () => overview.refetch() }
@@ -111,17 +115,17 @@ export default function Dashboard() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.full_name.split(' ')[0]}</h1>
-        <p className="mt-1 text-sm text-slate-400">Live overview of {user?.organization.name}.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('dash.welcome', { name: user?.full_name.split(' ')[0] ?? '' })}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t('dash.overview', { org: user?.organization.name ?? '' })}</p>
       </div>
 
       <BriefingCard />
 
-      <section aria-label="Key metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section aria-label={t('dash.metrics')} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {kpiCards.map(({ label, icon: Icon, num, fmt, hint, trend }) => (
           <Card key={label} lift className="p-5">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-400">{label}</p>
+              <p className="text-sm text-slate-400">{t(label)}</p>
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand/15 text-brand">
                 <Icon className="h-4 w-4" aria-hidden />
               </span>
@@ -131,7 +135,7 @@ export default function Dashboard() {
                 <p className="mt-3 text-3xl font-semibold tracking-tight">
                   <AnimatedNumber value={num(d.kpis)} format={fmt} />
                 </p>
-                {hint && <p className="mt-1 text-xs text-slate-500">{hint(d.kpis)}</p>}
+                {hint && <p className="mt-1 text-xs text-slate-500">{hint(d.kpis, t)}</p>}
                 {trend && <Sparkline data={trend(d)} className="mt-3" />}
               </>
             ) : overview.isError ? (
@@ -145,39 +149,39 @@ export default function Dashboard() {
 
       {overview.isError && (
         <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          {errorMessage(overview.error, 'Could not load dashboard data.')}{' '}
+          {errorMessage(overview.error, t('dash.loadError'))}{' '}
           <button className="underline" onClick={() => overview.refetch()}>
-            Retry
+            {t('dash.retry')}
           </button>
         </p>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Monthly revenue" subtitle="Last 12 months" {...state} isEmpty={noRevenue} emptyMessage="No sales recorded yet. Revenue appears here once deals are closed.">
+        <ChartCard title={t('dash.revenueTitle')} subtitle={t('dash.revenueSub')} {...state} isEmpty={noRevenue} emptyMessage={t('dash.revenueEmpty')}>
           {d && <RevenueChart data={d.monthly_revenue} />}
         </ChartCard>
-        <ChartCard title="Lead acquisition" subtitle="New leads per month" {...state} isEmpty={noLeads} emptyMessage="No leads yet. Add leads in the CRM to see this chart.">
+        <ChartCard title={t('dash.acqTitle')} subtitle={t('dash.acqSub')} {...state} isEmpty={noLeads} emptyMessage={t('dash.acqEmpty')}>
           {d && <LeadAcquisitionChart data={d.lead_acquisition} />}
         </ChartCard>
         <ChartCard
-          title="Conversion trend"
-          subtitle="Share of each month’s new leads that are won today"
+          title={t('dash.convTitle')}
+          subtitle={t('dash.convSub')}
           {...state}
           isEmpty={noLeads}
-          emptyMessage="Conversion appears once you have leads."
+          emptyMessage={t('dash.convEmpty')}
         >
           {d && <ConversionChart data={d.lead_acquisition} />}
         </ChartCard>
-        <ChartCard title="Leads by city" subtitle="Top cities" {...state} isEmpty={!d || d.leads_by_city.length === 0} emptyMessage="Add a city to your leads to see where they come from.">
+        <ChartCard title={t('dash.cityTitle')} subtitle={t('dash.citySub')} {...state} isEmpty={!d || d.leads_by_city.length === 0} emptyMessage={t('dash.cityEmpty')}>
           {d && <CityChart data={d.leads_by_city} height={260} />}
         </ChartCard>
         <ChartCard
-          title="Sales performance"
-          subtitle="Revenue per team member, last 12 months"
+          title={t('dash.perfTitle')}
+          subtitle={t('dash.perfSub')}
           {...state}
           className="lg:col-span-2"
           isEmpty={!d || d.sales_performance.every((p) => p.revenue === 0)}
-          emptyMessage="No sales yet, so there is nothing to compare."
+          emptyMessage={t('dash.perfEmpty')}
         >
           {d && <SalesPerformanceChart data={d.sales_performance} />}
         </ChartCard>
@@ -186,7 +190,7 @@ export default function Dashboard() {
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <ApiStatus />
         <Card className="p-5 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-200">Recent activity</h2>
+          <h2 className="text-sm font-semibold text-slate-200">{t('dash.recentTitle')}</h2>
           {overview.isLoading ? (
             <div className="mt-4 space-y-3" aria-busy="true">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -195,7 +199,7 @@ export default function Dashboard() {
             </div>
           ) : !d || d.recent_activity.length === 0 ? (
             <p className="mt-6 text-center text-sm text-slate-500">
-              No activity yet. CRM updates, sales and (soon) agent runs will appear here.
+              {t('dash.recentEmpty')}
             </p>
           ) : (
             <ul className="mt-3 divide-y divide-line">
@@ -203,7 +207,7 @@ export default function Dashboard() {
                 <li key={a.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <span className="min-w-0 truncate">{a.summary}</span>
                   <span className="shrink-0 text-xs text-slate-500">
-                    {a.actor_name ?? 'System'} · {timeAgo(a.created_at)}
+                    {a.actor_name ?? t('dash.system')} · {timeAgo(a.created_at)}
                   </span>
                 </li>
               ))}

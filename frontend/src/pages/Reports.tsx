@@ -7,16 +7,18 @@ import { Button } from '../components/ui/Button'
 import { Card, Skeleton } from '../components/ui/Card'
 import { inputClass } from '../components/ui/Field'
 import { useToast } from '../components/ui/Toast'
+import { useT } from '../i18n'
+import type { Key } from '../i18n/en'
 import { errorMessage, reportsApi } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { saveBlob } from '../lib/download'
 import { formatCurrency, formatNumber, monthLabel, titleCase } from '../lib/format'
 
-const RANGES = [
-  { months: 1, label: 'This month' },
-  { months: 3, label: 'Last 3 months' },
-  { months: 6, label: 'Last 6 months' },
-  { months: 12, label: 'Last 12 months' },
+const RANGES: { months: number; label: Key }[] = [
+  { months: 1, label: 'rep.range1' },
+  { months: 3, label: 'rep.range3' },
+  { months: 6, label: 'rep.range6' },
+  { months: 12, label: 'rep.range12' },
 ]
 
 function Table({ head, rows }: { head: string[]; rows: string[][] }) {
@@ -83,6 +85,7 @@ function usePrintLight() {
 export default function Reports() {
   usePrintLight()
   const { can } = useAuth()
+  const { t, lang } = useT()
   const toast = useToast()
   const [months, setMonths] = useState(6)
   const q = useQuery({ queryKey: ['report', months], queryFn: () => reportsApi.summary(months) })
@@ -90,20 +93,20 @@ export default function Reports() {
     mutationFn: (kind: 'leads' | 'sales') => reportsApi.exportCsv(kind, months),
     onSuccess: ({ blob, name }) => {
       saveBlob(blob, name)
-      toast.success('Export downloaded')
+      toast.success(t('rep.exported'))
     },
-    onError: (e) => toast.error(errorMessage(e, 'Could not export. Please try again.')),
+    onError: (e) => toast.error(errorMessage(e, t('rep.exportError'))),
   })
 
   const r = q.data
   const period = r ? (r.period_start === r.period_end ? monthLabel(r.period_start) : `${monthLabel(r.period_start)} – ${monthLabel(r.period_end)}`) : ''
   const cards = r
     ? [
-        ['New leads', formatNumber(r.period.new_leads), `${r.period.won_of_new} won so far`],
-        ['Conversion', `${r.period.conversion_rate}%`, 'of those new leads'],
-        ['Revenue', formatCurrency(r.period.revenue), `${formatNumber(r.period.deals)} deals closed`],
-        ['Average deal', formatCurrency(r.period.average_deal), 'revenue ÷ deals'],
-        ['Tasks completed', formatNumber(r.tasks.completed_in_period), `${r.tasks.open} open, ${r.tasks.overdue} overdue now`],
+        [t('rep.newLeads'), formatNumber(r.period.new_leads), t('rep.wonSoFar', { n: r.period.won_of_new })],
+        [t('rep.conversion'), `${r.period.conversion_rate}%`, t('rep.ofNew')],
+        [t('rep.revenue'), formatCurrency(r.period.revenue), t('rep.dealsClosed', { n: formatNumber(r.period.deals) })],
+        [t('rep.avgDeal'), formatCurrency(r.period.average_deal), t('rep.revDivDeals')],
+        [t('rep.tasksDone'), formatNumber(r.tasks.completed_in_period), t('rep.tasksNow', { open: r.tasks.open, overdue: r.tasks.overdue })],
       ]
     : []
 
@@ -111,43 +114,43 @@ export default function Reports() {
     <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3" data-print-hide>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-          <p className="mt-1 text-sm text-slate-400">A clean summary you can save as a PDF or share. Exports download as CSV for Excel or Sheets.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('rep.title')}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t('rep.sub')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Report period" className={`${inputClass} !w-auto`} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+          <select aria-label={t('rep.period')} className={`${inputClass} !w-auto`} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
             {RANGES.map((x) => (
               <option key={x.months} value={x.months}>
-                {x.label}
+                {t(x.label)}
               </option>
             ))}
           </select>
           <Button variant="outline" onClick={() => window.print()} disabled={!r}>
-            <Printer className="h-4 w-4" aria-hidden /> Download PDF
+            <Printer className="h-4 w-4" aria-hidden /> {t('rep.pdf')}
           </Button>
           {can('manager') && (
             <>
               <Button variant="outline" disabled={exportCsv.isPending} onClick={() => exportCsv.mutate('leads')}>
-                <Download className="h-4 w-4" aria-hidden /> Leads CSV
+                <Download className="h-4 w-4" aria-hidden /> {t('rep.leadsCsv')}
               </Button>
               <Button variant="outline" disabled={exportCsv.isPending} onClick={() => exportCsv.mutate('sales')}>
-                <Download className="h-4 w-4" aria-hidden /> Sales CSV
+                <Download className="h-4 w-4" aria-hidden /> {t('rep.salesCsv')}
               </Button>
             </>
           )}
         </div>
       </div>
       <p className="text-xs text-slate-500" data-print-hide>
-        “Download PDF” opens your browser&apos;s print window. Choose <strong>Save as PDF</strong> as the printer.
-        {!can('manager') && ' CSV exports contain contact details, so they are available to managers and above.'}
+        {t('rep.pdfHelp')}
+        {!can('manager') && ` ${t('rep.csvManagers')}`}
       </p>
 
       {q.isLoading && <Skeleton className="h-64 w-full" />}
       {q.isError && (
         <Card className="p-6 text-center" role="alert">
-          <p className="text-sm text-red-400">{errorMessage(q.error, 'Could not load the report.')}</p>
+          <p className="text-sm text-red-400">{errorMessage(q.error, t('rep.loadError'))}</p>
           <Button variant="outline" className="mt-3" onClick={() => q.refetch()}>
-            Try again
+            {t('rep.tryAgain')}
           </Button>
         </Card>
       )}
@@ -155,14 +158,14 @@ export default function Reports() {
       {r && (
         <>
           <header className="hidden border-b border-line pb-3 print:block">
-            <p className="text-xs uppercase tracking-widest text-slate-500">Business report</p>
+            <p className="text-xs uppercase tracking-widest text-slate-500">{t('rep.printKicker')}</p>
             <h2 className="text-2xl font-semibold">{r.organization}</h2>
             <p className="text-sm text-slate-400">
-              {period} · generated {new Date(r.generated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {period} · {t('rep.generated', { date: new Date(r.generated_at).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) })}
             </p>
           </header>
           <p className="text-sm text-slate-400 print:hidden">
-            Showing <strong className="text-white">{period}</strong> for {r.organization}.
+            {t('rep.showing', { period, org: r.organization })}
           </p>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
@@ -175,35 +178,35 @@ export default function Reports() {
             ))}
           </div>
 
-          <ChartCard title="Monthly revenue" isLoading={false} isEmpty={r.monthly_revenue.every((m) => m.revenue === 0)} emptyMessage="No sales in this period." className="nx-avoid-break">
+          <ChartCard title={t('rep.monthlyRevenue')} isLoading={false} isEmpty={r.monthly_revenue.every((m) => m.revenue === 0)} emptyMessage={t('rep.noSales')} className="nx-avoid-break">
             <RevenueChart data={r.monthly_revenue} />
           </ChartCard>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Section title="Revenue by city">
-              {r.revenue_by_city.length === 0 ? <Empty text="No sales in this period." /> : <Table head={['City', 'Revenue']} rows={r.revenue_by_city.map((c) => [c.label, formatCurrency(c.revenue)])} />}
+            <Section title={t('rep.revByCity')}>
+              {r.revenue_by_city.length === 0 ? <Empty text={t('rep.noSales')} /> : <Table head={[t('rep.city'), t('rep.colRevenue')]} rows={r.revenue_by_city.map((c) => [c.label, formatCurrency(c.revenue)])} />}
             </Section>
-            <Section title="Sales team" note="Revenue in the period; conversion is won leads out of leads assigned.">
+            <Section title={t('rep.salesTeam')} note={t('rep.salesTeamNote')}>
               {r.by_salesperson.every((p) => p.revenue === 0 && p.leads_assigned === 0) ? (
-                <Empty text="No sales or assigned leads yet." />
+                <Empty text={t('rep.noTeamData')} />
               ) : (
                 <Table
-                  head={['Name', 'Deals', 'Revenue', 'Conversion']}
+                  head={[t('rep.name'), t('rep.deals'), t('rep.colRevenue'), t('rep.colConversion')]}
                   rows={[...r.by_salesperson].sort((a, b) => b.revenue - a.revenue).map((p) => [p.name, String(p.deals), formatCurrency(p.revenue), `${p.conversion_rate}%`])}
                 />
               )}
             </Section>
-            <Section title="New leads by month">
-              <Table head={['Month', 'Created', 'Won']} rows={r.acquisition.map((m) => [monthLabel(m.month), String(m.created), String(m.won)])} />
+            <Section title={t('rep.newByMonth')}>
+              <Table head={[t('rep.month'), t('rep.created'), t('rep.won')]} rows={r.acquisition.map((m) => [monthLabel(m.month), String(m.created), String(m.won)])} />
             </Section>
-            <Section title="Pipeline by status" note="All leads, not only this period.">
-              {r.leads_by_status.length === 0 ? <Empty text="No leads yet." /> : <Table head={['Status', 'Leads']} rows={r.leads_by_status.map((x) => [titleCase(x.label), formatNumber(x.count)])} />}
+            <Section title={t('rep.pipeline')} note={t('rep.pipelineNote')}>
+              {r.leads_by_status.length === 0 ? <Empty text={t('rep.noLeads')} /> : <Table head={[t('rep.status'), t('rep.leads')]} rows={r.leads_by_status.map((x) => [titleCase(x.label), formatNumber(x.count)])} />}
             </Section>
-            <Section title="Leads by source">
-              {r.leads_by_source.length === 0 ? <Empty text="No leads yet." /> : <Table head={['Source', 'Leads']} rows={r.leads_by_source.map((x) => [titleCase(x.label), formatNumber(x.count)])} />}
+            <Section title={t('rep.bySource')}>
+              {r.leads_by_source.length === 0 ? <Empty text={t('rep.noLeads')} /> : <Table head={[t('rep.source'), t('rep.leads')]} rows={r.leads_by_source.map((x) => [titleCase(x.label), formatNumber(x.count)])} />}
             </Section>
-            <Section title="Leads by city">
-              {r.leads_by_city.length === 0 ? <Empty text="No cities recorded yet." /> : <Table head={['City', 'Leads']} rows={r.leads_by_city.map((x) => [x.label, formatNumber(x.count)])} />}
+            <Section title={t('rep.byCity')}>
+              {r.leads_by_city.length === 0 ? <Empty text={t('rep.noCities')} /> : <Table head={[t('rep.city'), t('rep.leads')]} rows={r.leads_by_city.map((x) => [x.label, formatNumber(x.count)])} />}
             </Section>
           </div>
         </>

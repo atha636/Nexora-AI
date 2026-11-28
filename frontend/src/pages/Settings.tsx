@@ -7,6 +7,7 @@ import { inputClass, SelectField, TextField } from '../components/ui/Field'
 import { ConfirmDialog, Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { TOUR_EVENT } from '../components/layout/ProductTour'
+import { LANGS, useT } from '../i18n'
 import { useTheme } from '../hooks/useTheme'
 import { accountApi, authApi, errorMessage, teamApi, type NewMemberInput } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -100,6 +101,30 @@ function PasswordSection() {
           </Button>
         </div>
       </form>
+    </Section>
+  )
+}
+
+function LanguageSection() {
+  const { lang, setLang, t } = useT()
+  return (
+    <Section title={t('lang.title')} hint={t('lang.hint')}>
+      <div role="radiogroup" aria-label={t('lang.label')} className="flex gap-3">
+        {LANGS.map(({ code, label }) => (
+          <button
+            key={code}
+            role="radio"
+            aria-checked={lang === code}
+            onClick={() => setLang(code)}
+            className={`rounded-lg border px-4 py-2 text-sm transition ${
+              lang === code ? 'border-brand bg-brand/10 text-white' : 'border-line text-slate-400 hover:bg-navy-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-slate-500">{t('lang.note')}</p>
     </Section>
   )
 }
@@ -358,6 +383,7 @@ export default function Settings() {
       <ProfileSection />
       <PasswordSection />
       <AppearanceSection />
+      <LanguageSection />
       <OrganizationSection />
       <TeamSection />
     </div>
